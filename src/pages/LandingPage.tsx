@@ -103,29 +103,26 @@ export const LandingPage: React.FC = () => {
 
   return (
     <div
-      className="min-h-screen flex flex-col items-center justify-center font-mono px-4"
+      className="min-h-screen flex flex-col items-center justify-center font-mono px-4 py-10"
       style={{ background: '#000000', color: '#e0e0e0' }}
     >
       {/* Centered title */}
-      <div className="mb-5 text-center">
+      <div className="mb-6 text-center">
         <span
-          className="text-2xl font-bold tracking-[0.25em] uppercase"
-          style={{ color: '#f59e0b', letterSpacing: '0.3em' }}
+          className="text-2xl font-bold uppercase"
+          style={{ color: '#f59e0b', letterSpacing: '0.35em' }}
         >
           STABLEWARDEN
         </span>
       </div>
 
-      {/* Terminal */}
+      {/* Terminal — grows with content, no fixed height */}
       <div
         className="w-full max-w-[700px] flex flex-col"
         style={{
           background: '#080808',
           border: '1px solid rgba(255,255,255,0.08)',
           borderRadius: '8px',
-          height: '65vh',
-          minHeight: '420px',
-          maxHeight: '680px',
         }}
       >
         {/* Terminal title bar */}
@@ -144,11 +141,11 @@ export const LandingPage: React.FC = () => {
           </span>
         </div>
 
-        {/* Messages */}
+        {/* Messages — max-height so long chats scroll */}
         <div
           ref={scrollRef}
-          className="flex-1 overflow-y-auto p-4 space-y-1"
-          style={{ scrollBehavior: 'smooth' }}
+          className="overflow-y-auto p-4 space-y-1"
+          style={{ maxHeight: '55vh', scrollBehavior: 'smooth' }}
         >
           {messages.map((msg, i) => (
             <div
@@ -200,7 +197,7 @@ export const LandingPage: React.FC = () => {
       </div>
 
       {/* Footer */}
-      <div className="mt-5 text-center">
+      <div className="mt-6 text-center">
         <p className="text-[11px] tracking-wide" style={{ color: 'rgba(255,255,255,0.3)' }}>
           {entries.length} entries · 1,821 commits · origin: oct 29, 2025
         </p>
