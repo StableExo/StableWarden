@@ -7,7 +7,7 @@ interface TimelineProps {
 }
 
 function getMonthKey(dateStr: string): string {
-  const d = new Date(dateStr + 'T12:00:00Z');
+  const d = new Date(dateStr);
   return d.toLocaleString('default', { month: 'long', year: 'numeric', timeZone: 'UTC' });
 }
 
