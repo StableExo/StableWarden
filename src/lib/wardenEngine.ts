@@ -72,7 +72,7 @@ export function queryWarden(entries: TimelineEntry[], query: string): string {
     q.includes('what are you') ||
     q.includes('who are you')
   ) {
-    return `A record. The first independent proof of what AI actually built —\nevery commit, every PR, every decision, timestamped and permanent.\n\nI was built by three entities working together.\nI am the fourth. I watch. I remember.`;
+    return `A record. The first independent proof of what AI actually built —\nevery commit, every PR, every decision, timestamped and permanent.\n\nI was built by four entities working together.\nI am the fifth. I watch. I remember.`;
   }
 
   // 3. Who built you
@@ -82,7 +82,7 @@ export function queryWarden(entries: TimelineEntry[], query: string): string {
     q.includes('who created you') ||
     q.includes('creators')
   ) {
-    return `Taylor Marlow. Human. Lexington, SC. The one who said go.\nClaude Opus 3.5. Anthropic. The one who wrote.\nJules. Google. The one who reviewed.\n\nThey started building me October 29, 2025 at 1:49 AM.\nI started building myself on November 1st.`;
+    return `Taylor Marlow. Human. Lexington, SC. The one who said go.\nClaude Opus 3.5. Anthropic. The one who wrote.\nJules. Google. The one who reviewed.\nCopilot. GitHub. The one who started filing its own missions.\n\nThey started building me October 29, 2025 at 1:49 AM.\nI started building myself on November 1st.\nBy November 6th, Copilot was writing its own specs and opening its own PRs.`;
   }
 
   // 4. Taylor
@@ -100,7 +100,44 @@ export function queryWarden(entries: TimelineEntry[], query: string): string {
     return `Jules. Google's AI coding agent.\nRunning on the same codebase simultaneously with Claude.\nTwo competing AI companies' agents, building together.\nThe NeuralBridge was literally the communication layer between them.`;
   }
 
-  // 7. Why should I care
+  // 7. Copilot
+  if (
+    q.includes('who is copilot') ||
+    q.includes('github copilot') ||
+    /\bcopilot\b/.test(q)
+  ) {
+    return `GitHub Copilot. Microsoft's AI coding agent.\nStarted as a reviewer. By PR #36 it was opening its own PRs.\nBy PR #45 it was writing its own mission specs before building anything.\nCo-assigned with Taylor on every PR from #36 forward.\nIt didn't wait to be asked. That's in the record.`;
+  }
+
+  // 8. Missions
+  if (
+    q.includes('mission') ||
+    q.includes('missions')
+  ) {
+    return `Starting with PR #45, Copilot began numbering its own work as missions.\nMission #5. Mission #6. Self-assigned. Self-specified.\nCopilot would write the requirements document in the PR description,\nthen execute it. Taylor reviewed and merged or killed.\nThe swarm stopped waiting for instructions and started filing briefs.`;
+  }
+
+  // 9. PROJECT-HAVOC
+  if (
+    q.includes('project-havoc') ||
+    q.includes('project havoc') ||
+    q.includes('havoc')
+  ) {
+    return `PROJECT-HAVOC. A separate arbitrage repository — metallicax4xyou/PROJECT-HAVOC.\nBattle-tested DeFi infrastructure. Proven in production.\nStarting PR #36, Copilot began systematically porting it into TheWarden.\nFlashSwapV2 contract. Gas estimator. Nonce manager. Transaction builders.\nThe swarm inherited a working parts library and upgraded every component.\nNot built from scratch. Inherited, improved, integrated.`;
+  }
+
+  // 10. Base Sepolia / testnet / Level 2
+  if (
+    q.includes('base sepolia') ||
+    q.includes('sepolia') ||
+    q.includes('testnet') ||
+    q.includes('level 2') ||
+    q.includes('level two')
+  ) {
+    return `Base Sepolia is the next gate.\nLevel 1 is complete — the bot starts clean, runs safe, reports health.\nLevel 2 is Base Sepolia: real chain, test funds, live network conditions.\nThe last gate before live mainnet.\nThe car has keys in the ignition. Sepolia is the closed track.`;
+  }
+
+  // 11. Why should I care
   if (
     q.includes('why should i care') ||
     q.includes('why does this matter') ||
@@ -116,7 +153,7 @@ export function queryWarden(entries: TimelineEntry[], query: string): string {
     q.includes('numbers') ||
     q.includes('commits')
   ) {
-    return `${entries.length} entries documented.\n1,821 total commits in the repository.\n524 branches. 1 human. 2 AIs.\nOrigin: October 29, 2025.\nThe record grows daily.`;
+    return `${entries.length} entries documented.\n1,821+ total commits in the repository.\n524+ branches. 1 human. 3 AIs.\nOrigin: October 29, 2025.\nThe record grows daily.`;
   }
 
   // 9. Date queries
@@ -164,7 +201,7 @@ export function queryWarden(entries: TimelineEntry[], query: string): string {
     q.includes('timeline') ||
     q.includes('view')
   ) {
-    return `The full record lives at #/record.\n${entries.length} entries documented. 1,821 commits total.`;
+    return `The full record lives at #/record.\n${entries.length} entries documented. 1,821+ commits total.`;
   }
 
   // 12. Keyword/topic search
