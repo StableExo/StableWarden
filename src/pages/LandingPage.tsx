@@ -106,7 +106,7 @@ export const LandingPage: React.FC = () => {
       className="min-h-screen flex flex-col items-center justify-center font-mono px-4 py-10"
       style={{ background: '#000000', color: '#e0e0e0' }}
     >
-      {/* Centered title */}
+      {/* Title */}
       <div className="mb-6 text-center">
         <span
           className="text-2xl font-bold uppercase"
@@ -116,7 +116,7 @@ export const LandingPage: React.FC = () => {
         </span>
       </div>
 
-      {/* Terminal — grows with content, no fixed height */}
+      {/* Terminal — no fixed height, grows with content */}
       <div
         className="w-full max-w-[700px] flex flex-col"
         style={{
@@ -125,7 +125,7 @@ export const LandingPage: React.FC = () => {
           borderRadius: '8px',
         }}
       >
-        {/* Terminal title bar */}
+        {/* Title bar */}
         <div
           className="flex items-center gap-1.5 px-4 py-2.5"
           style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
@@ -133,19 +133,17 @@ export const LandingPage: React.FC = () => {
           <div className="w-2.5 h-2.5 rounded-full" style={{ background: '#333' }} />
           <div className="w-2.5 h-2.5 rounded-full" style={{ background: '#333' }} />
           <div className="w-2.5 h-2.5 rounded-full" style={{ background: '#333' }} />
-          <span
-            className="ml-3 text-[10px] tracking-widest uppercase"
-            style={{ color: 'rgba(255,255,255,0.2)' }}
-          >
-            thewarden
-          </span>
+          <span className="ml-3 text-[10px] tracking-widest uppercase" style={{ color: 'rgba(255,255,255,0.2)' }}>thewarden</span>
         </div>
 
-        {/* Messages — max-height so long chats scroll */}
+        {/* Messages — natural height, caps at 60vh when conversation grows */}
         <div
           ref={scrollRef}
-          className="overflow-y-auto p-4 space-y-1"
-          style={{ maxHeight: '55vh', scrollBehavior: 'smooth' }}
+          className="p-5 space-y-1"
+          style={{
+            overflowY: 'auto',
+            maxHeight: '60vh',
+          }}
         >
           {messages.map((msg, i) => (
             <div
@@ -166,7 +164,7 @@ export const LandingPage: React.FC = () => {
             </div>
           )}
           {!isTyping && bootComplete && !displayedText && (
-            <div className="text-sm" style={{ color: '#e0e0e0' }}>
+            <div className="text-sm">
               <span
                 className="inline-block w-[7px] h-[14px] align-middle"
                 style={{ background: '#f59e0b', animation: 'blink 1s step-end infinite' }}
