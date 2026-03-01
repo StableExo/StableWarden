@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Header } from '../components/Header';
 import { Timeline } from '../components/Timeline';
+import { PhaseMap } from '../components/PhaseMap';
 import { TimelineEntry, ProjectStats } from '../types';
 import { fetchEntries } from '../lib/supabase';
+import { Network, List } from 'lucide-react';
 
 const STATS: ProjectStats = {
   totalCommits: 1821,
@@ -12,10 +14,13 @@ const STATS: ProjectStats = {
   contributors: 1,
 };
 
+type ViewMode = 'phases' | 'chronicle';
+
 export const RecordPage: React.FC = () => {
   const [entries, setEntries] = useState<TimelineEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [view, setView] = useState<ViewMode>('phases');
 
   useEffect(() => {
     fetchEntries()
@@ -44,6 +49,32 @@ export const RecordPage: React.FC = () => {
         Witness · Document · Verify · Remember
       </div>
 
+      {/* View Toggle */}
+      <div className="flex items-center gap-2 mb-8">
+        <button
+          onClick={() => setView('phases')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all border ${
+            view === 'phases'
+              ? 'bg-primary/10 border-primary/40 text-primary'
+              : 'bg-base-200/50 border-base-content/10 text-base-content/40 hover:text-base-content/70'
+          }`}
+        >
+          <Network size={14} />
+          Phase Map
+        </button>
+        <button
+          onClick={() => setView('chronicle')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all border ${
+            view === 'chronicle'
+              ? 'bg-primary/10 border-primary/40 text-primary'
+              : 'bg-base-200/50 border-base-content/10 text-base-content/40 hover:text-base-content/70'
+          }`}
+        >
+          <List size={14} />
+          Chronicle
+        </button>
+      </div>
+
       {loading && (
         <div className="flex items-center justify-center py-20 text-base-content/40">
           <span className="loading loading-dots loading-md mr-3" />
@@ -57,7 +88,8 @@ export const RecordPage: React.FC = () => {
         </div>
       )}
 
-      {!loading && !error && <Timeline entries={entries} />}
+      {!loading && !error && view === 'phases' && <PhaseMap entries={entries} />}
+      {!loading && !error && view === 'chronicle' && <Timeline entries={entries} />}
 
       <div className="mt-12 pb-8 text-center">
         <p className="text-xs text-base-content/20">
