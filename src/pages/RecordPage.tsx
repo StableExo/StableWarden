@@ -2,9 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { Header } from '../components/Header';
 import { Timeline } from '../components/Timeline';
 import { PhaseMap } from '../components/PhaseMap';
+import { ArcView } from '../components/ArcView';
 import { TimelineEntry, ProjectStats } from '../types';
 import { fetchEntries } from '../lib/supabase';
-import { Network, List } from 'lucide-react';
+import { Network, List, GitBranch } from 'lucide-react';
 
 const STATS: ProjectStats = {
   totalCommits: 1821,
@@ -14,7 +15,7 @@ const STATS: ProjectStats = {
   contributors: 1,
 };
 
-type ViewMode = 'phases' | 'chronicle';
+type ViewMode = 'phases' | 'chronicle' | 'arc';
 
 export const RecordPage: React.FC = () => {
   const [entries, setEntries] = useState<TimelineEntry[]>([]);
@@ -73,16 +74,27 @@ export const RecordPage: React.FC = () => {
           <List size={14} />
           Chronicle
         </button>
+        <button
+          onClick={() => setView('arc')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all border ${
+            view === 'arc'
+              ? 'bg-primary/10 border-primary/40 text-primary'
+              : 'bg-base-200/50 border-base-content/10 text-base-content/40 hover:text-base-content/70'
+          }`}
+        >
+          <GitBranch size={14} />
+          The Arc
+        </button>
       </div>
 
-      {loading && (
+      {loading && view !== 'arc' && (
         <div className="flex items-center justify-center py-20 text-base-content/40">
           <span className="loading loading-dots loading-md mr-3" />
           Loading the record...
         </div>
       )}
 
-      {error && (
+      {error && view !== 'arc' && (
         <div className="alert alert-error">
           <span>Failed to load: {error}</span>
         </div>
@@ -90,6 +102,7 @@ export const RecordPage: React.FC = () => {
 
       {!loading && !error && view === 'phases' && <PhaseMap entries={entries} />}
       {!loading && !error && view === 'chronicle' && <Timeline entries={entries} />}
+      {view === 'arc' && <ArcView />}
 
       <div className="mt-12 pb-8 text-center">
         <p className="text-xs text-base-content/20">
