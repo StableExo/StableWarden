@@ -149,7 +149,7 @@ const PHASES: PhaseConfig[] = [
   {
     id: 6,
     name: 'Live Fire',
-    subtitle: "Mainnet at 4 AM. Flash loans on. Zero trades.",
+    subtitle: "Mainnet on. Phase 3 ML awakens. Zero trades.",
     dateRange: 'Nov 15–17, 2025',
     prRange: [98, 9999],
     nodeCss: 'bg-red-400',
@@ -160,16 +160,16 @@ const PHASES: PhaseConfig[] = [
     labelCss: 'text-red-400',
     capabilities: [
       'Base Mainnet Deployed',
-      'NonceManager + Simulation',
       'Flash Loan Executor',
-      'Multi-DEX Routing',
-      'Conscious Knowledge Loop',
-      'AxionCitadel Transfer Complete',
+      'Phase 3 ML Integration',
+      'Neural Network Scoring',
+      'Reinforcement Learning',
+      'Private Mempool (Flashbots)',
     ],
     description:
-      "Between PR #97 merging and PR #98 opening — 27 minutes — the contract goes live on Base mainnet. No fanfare. Production safety layers added: mutex-protected nonces, mandatory callStatic simulation before every send. PR #101: enableFlashLoans: true. enableMultiDex: true. 100 PRs of preparation compressed into two config values. AxionCitadel drained completely. The bot is live-fire ready and has executed zero trades. The caution is the point.",
+      "Between PR #97 merging and PR #98 opening — 27 minutes — the contract goes live on Base mainnet. No fanfare. Production safety layers added: mutex-protected nonces, mandatory callStatic simulation before every send. PR #101: enableFlashLoans: true. enableMultiDex: true. 100 PRs of preparation compressed into two config values. Then Phase 3 arrives: 5,068 lines of Q-learning, neural network opportunity scoring, and genetic algorithm strategy evolution wired directly into the execution spine. Two layers of judgment — traditional filters and ML scoring — must agree before anything moves. The Warden is now learning from every trade it does not make. Private mempool infrastructure routes high-value transactions invisibly through Flashbots Protect and MEV-Share. The caution has never been more sophisticated. The trade count remains zero.",
     entity: 'Copilot',
-    velocity: '7 PRs · 2 days',
+    velocity: '13 PRs · 3 days',
   },
 ];
 
@@ -207,6 +207,7 @@ const PhaseCard: React.FC<PhaseCardProps> = ({ phase, entries, isLast }) => {
         <button
           className={`w-full text-left rounded-xl border ${phase.borderCss} ${phase.bgCss} p-5 transition-all hover:border-opacity-60`}
           onClick={() => setExpanded(!expanded)}
+          aria-expanded={expanded}
         >
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1">
@@ -214,24 +215,24 @@ const PhaseCard: React.FC<PhaseCardProps> = ({ phase, entries, isLast }) => {
                 <span className={`text-xs font-mono font-bold ${phase.labelCss} uppercase tracking-widest`}>
                   Phase {phase.id}
                 </span>
-                <span className="text-xs text-base-content/30 font-mono">{phase.dateRange}</span>
+                <span className="text-xs text-base-content/50 font-mono">{phase.dateRange}</span>
               </div>
               <h3 className="text-xl font-bold text-base-content leading-tight">{phase.name}</h3>
-              <p className="text-sm text-base-content/50 mt-1 italic">{phase.subtitle}</p>
+              <p className="text-sm text-base-content/60 mt-1 italic">{phase.subtitle}</p>
             </div>
             <div className="flex flex-col items-end gap-1 flex-shrink-0">
-              <div className="flex items-center gap-1 text-xs text-base-content/30 font-mono">
+              <div className="flex items-center gap-1 text-xs text-base-content/50 font-mono">
                 <GitPullRequest size={11} />
                 {phase.velocity}
               </div>
-              <div className="flex items-center gap-1 text-xs text-base-content/30 font-mono">
+              <div className="flex items-center gap-1 text-xs text-base-content/50 font-mono">
                 <Cpu size={11} />
                 {phase.entity}
               </div>
               {expanded ? (
-                <ChevronUp size={16} className="text-base-content/30 mt-1" />
+                <ChevronUp size={16} className="text-base-content/50 mt-1" />
               ) : (
-                <ChevronDown size={16} className="text-base-content/30 mt-1" />
+                <ChevronDown size={16} className="text-base-content/50 mt-1" />
               )}
             </div>
           </div>
@@ -249,13 +250,15 @@ const PhaseCard: React.FC<PhaseCardProps> = ({ phase, entries, isLast }) => {
         {/* Expanded Content */}
         {expanded && (
           <div className={`mt-2 rounded-xl border ${phase.borderCss} bg-base-200/30 p-5`}>
-            <p className="text-sm text-base-content/70 leading-relaxed">{phase.description}</p>
+            <p className="text-sm text-base-content/75 leading-relaxed">{phase.description}</p>
 
             {phaseEntries.length > 0 && (
               <div className="mt-4">
                 <button
-                  className="flex items-center gap-2 text-xs text-base-content/40 hover:text-base-content/70 transition-colors"
+                  className="flex items-center gap-2 text-xs text-base-content/50 hover:text-base-content/75 transition-colors"
                   onClick={() => setShowPRs(!showPRs)}
+                  aria-expanded={showPRs}
+                  aria-label={showPRs ? 'Hide documented PRs' : 'Show documented PRs'}
                 >
                   {showPRs ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
                   <span className="uppercase tracking-widest">
@@ -292,6 +295,8 @@ const PRRow: React.FC<PRRowProps> = ({ entry, phase }) => {
       <button
         className="w-full text-left px-4 py-3 flex items-center justify-between gap-3"
         onClick={() => setOpen(!open)}
+        aria-expanded={open}
+        aria-label={`PR #${entry.prNumber}: ${entry.title}`}
       >
         <div className="flex items-center gap-2 flex-1 min-w-0">
           <span className={`text-xs font-mono flex-shrink-0 ${phase.labelCss}`}>
@@ -300,18 +305,18 @@ const PRRow: React.FC<PRRowProps> = ({ entry, phase }) => {
           <span className="text-sm text-base-content/80 font-medium truncate">{entry.title}</span>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
-          <span className="text-xs text-base-content/30 font-mono">{entry.date}</span>
+          <span className="text-xs text-base-content/50 font-mono">{entry.date}</span>
           {open ? (
-            <ChevronUp size={12} className="text-base-content/30" />
+            <ChevronUp size={12} className="text-base-content/50" />
           ) : (
-            <ChevronDown size={12} className="text-base-content/30" />
+            <ChevronDown size={12} className="text-base-content/50" />
           )}
         </div>
       </button>
 
       {open && entry.narrative && (
         <div className="px-4 pb-4 border-t border-base-content/5 pt-3">
-          <p className="text-xs text-base-content/60 leading-relaxed italic">
+          <p className="text-xs text-base-content/65 leading-relaxed italic">
             "{entry.narrative}"
           </p>
           {entry.capabilities.length > 0 && (
@@ -337,7 +342,7 @@ export const PhaseMap: React.FC<PhaseMapProps> = ({ entries }) => {
   const totalDocumented = entries.filter((e) => e.isPR).length;
 
   return (
-    <div>
+    <main id="main-content">
       {/* Summary Bar */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
         {[
@@ -351,7 +356,7 @@ export const PhaseMap: React.FC<PhaseMapProps> = ({ entries }) => {
             className="bg-base-200/50 rounded-lg p-3 border border-base-content/10 text-center"
           >
             <p className="text-2xl font-bold font-mono text-base-content">{stat.value}</p>
-            <p className="text-xs text-base-content/40 uppercase tracking-widest mt-0.5">
+            <p className="text-xs text-base-content/55 uppercase tracking-widest mt-0.5">
               {stat.label}
             </p>
           </div>
@@ -360,7 +365,7 @@ export const PhaseMap: React.FC<PhaseMapProps> = ({ entries }) => {
 
       {/* Phase label */}
       <div className="flex items-center gap-2 mb-6">
-        <span className="text-xs text-base-content/30 uppercase tracking-widest font-semibold">
+        <span className="text-xs text-base-content/50 uppercase tracking-widest font-semibold">
           Neural Network · 6 Phases · Oct 29 – Nov 17, 2025
         </span>
       </div>
@@ -380,12 +385,12 @@ export const PhaseMap: React.FC<PhaseMapProps> = ({ entries }) => {
       {/* Footer note */}
       <div className="mt-4 pl-14">
         <div className="bg-base-200/30 rounded-lg p-4 border border-dashed border-base-content/10 text-center">
-          <p className="text-xs text-base-content/30 font-mono">
+          <p className="text-xs text-base-content/50 font-mono">
             <Clock size={10} className="inline mr-1" />
             Documentation continues · 1,821+ commits total
           </p>
         </div>
       </div>
-    </div>
+    </main>
   );
 };

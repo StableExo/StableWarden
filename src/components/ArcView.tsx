@@ -9,28 +9,29 @@ const MILESTONES = [
   { x: 568, y: 62,  pr: 90,  label: 'Live Mainnet',         sub: '4 AM. Base deployed.',       above: true  },
   { x: 660, y: 80,  pr: 100, label: 'Zero Trades',          sub: 'The caution holds.',         above: false },
   { x: 745, y: 100, pr: 105, label: 'The Naming',           sub: 'ArbitrageBot → TheWarden.',  above: true  },
+  { x: 810, y: 122, pr: 110, label: 'The Learning',         sub: 'Phase 3 awakens.',           above: false },
 ];
 
 const ARC_PATH =
-  'M 42 272 C 100 265, 160 200, 255 118 C 330 58, 400 50, 470 55 C 520 58, 545 60, 568 62 C 610 66, 638 74, 660 80 C 695 88, 725 96, 745 100';
+  'M 42 272 C 100 265, 160 200, 255 118 C 330 58, 400 50, 470 55 C 520 58, 545 60, 568 62 C 610 66, 638 74, 660 80 C 695 88, 725 96, 745 100 C 765 108, 790 116, 810 122';
 
 export const ArcView: React.FC = () => {
   return (
     <div className="w-full">
       <div className="mb-6 text-center">
         <p className="text-xs tracking-widest uppercase text-base-content/60 font-mono">
-          the arc · PR #1 → #107
+          the arc · PR #1 → #110
         </p>
       </div>
 
       <div className="w-full overflow-x-auto">
         <svg
-          viewBox="0 0 800 340"
+          viewBox="0 0 860 340"
           className="w-full"
           style={{ minWidth: 480, maxHeight: 380 }}
           xmlns="http://www.w3.org/2000/svg"
           role="img"
-          aria-label="The Warden development arc from PR #1 to #107"
+          aria-label="The Warden development arc from PR #1 to #110"
         >
           <defs>
             <filter id="arcGlow" x="-20%" y="-80%" width="140%" height="260%">
@@ -51,10 +52,10 @@ export const ArcView: React.FC = () => {
             </filter>
           </defs>
 
-          <ellipse cx="400" cy="170" rx="340" ry="140" fill="none" stroke="#1a2a3a" strokeWidth="0.5" opacity="0.3" />
-          <circle cx="400" cy="170" r="8" fill="#1a2a3a" opacity="0.2" />
+          <ellipse cx="430" cy="170" rx="370" ry="140" fill="none" stroke="#1a2a3a" strokeWidth="0.5" opacity="0.3" />
+          <circle cx="430" cy="170" r="8" fill="#1a2a3a" opacity="0.2" />
 
-          <line x1="30" y1="300" x2="770" y2="300" stroke="#1a2a3a" strokeWidth="0.8" opacity="0.5" />
+          <line x1="30" y1="300" x2="840" y2="300" stroke="#1a2a3a" strokeWidth="0.8" opacity="0.5" />
 
           {MILESTONES.map((m) => (
             <line
@@ -148,7 +149,7 @@ export const ArcView: React.FC = () => {
           })}
 
           <text
-            x="400"
+            x="430"
             y="26"
             textAnchor="middle"
             fontSize="13"
