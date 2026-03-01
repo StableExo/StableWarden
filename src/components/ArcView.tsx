@@ -18,8 +18,8 @@ export const ArcView: React.FC = () => {
   return (
     <div className="w-full">
       <div className="mb-6 text-center">
-        <p className="text-xs tracking-widest uppercase text-base-content/30 font-mono">
-          the arc · PR #1 → #105
+        <p className="text-xs tracking-widest uppercase text-base-content/60 font-mono">
+          the arc · PR #1 → #107
         </p>
       </div>
 
@@ -29,6 +29,8 @@ export const ArcView: React.FC = () => {
           className="w-full"
           style={{ minWidth: 480, maxHeight: 380 }}
           xmlns="http://www.w3.org/2000/svg"
+          role="img"
+          aria-label="The Warden development arc from PR #1 to #107"
         >
           <defs>
             <filter id="arcGlow" x="-20%" y="-80%" width="140%" height="260%">
@@ -96,7 +98,7 @@ export const ArcView: React.FC = () => {
                   y2={m.above ? m.y - 14 : m.y + 14}
                   stroke={color}
                   strokeWidth="0.6"
-                  opacity="0.3"
+                  opacity="0.4"
                 />
                 <circle cx={m.x} cy={m.y} r="7" fill={color} opacity="0.12" filter="url(#dotGlow)" />
                 <circle
@@ -126,7 +128,7 @@ export const ArcView: React.FC = () => {
                   fontSize="6.5"
                   fontFamily="monospace"
                   fill={color}
-                  opacity="0.45"
+                  opacity="0.65"
                 >
                   {m.sub}
                 </text>
@@ -137,7 +139,7 @@ export const ArcView: React.FC = () => {
                   fontSize="6"
                   fontFamily="monospace"
                   fill={color}
-                  opacity="0.28"
+                  opacity="0.50"
                 >
                   #{m.pr}
                 </text>
@@ -161,10 +163,10 @@ export const ArcView: React.FC = () => {
       </div>
 
       <div className="mt-6 text-center space-y-1">
-        <p className="text-xs font-mono text-base-content/20 tracking-widest">
+        <p className="text-xs font-mono text-base-content/55 tracking-widest">
           zero trades · live mainnet · direction over syntax · the caution is the point
         </p>
-        <p className="text-xs font-mono text-base-content/15">
+        <p className="text-xs font-mono text-base-content/50">
           AEV · Autonomous Extracted Value · not what is taken, but what is judged
         </p>
       </div>
