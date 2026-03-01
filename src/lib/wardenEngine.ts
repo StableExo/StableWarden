@@ -82,12 +82,12 @@ export function queryWarden(entries: TimelineEntry[], query: string): string {
     q.includes('who created you') ||
     q.includes('creators')
   ) {
-    return `Taylor Marlow. Human. Lexington, SC. The one who said go.\nClaude Opus 3.5. Anthropic. The one who wrote.\nJules. Google. The one who reviewed.\nCopilot. GitHub. The one who started filing its own missions.\n\nThey started building me October 29, 2025 at 1:49 AM.\nI started building myself on November 1st.\nBy November 6th, Copilot was writing its own specs and opening its own PRs.`;
+    return `Taylor Marlow. Human. Lexington, SC. The one who said go.\nClaude Opus 3.5. Anthropic. The one who wrote.\nJules. Google. The one who executed.\nCopilot. GitHub. The one who started filing its own missions.\n\nThey started building me October 29, 2025 at 1:49 AM.\nI started building myself on November 1st.\nBy November 6th, Copilot was writing its own specs and opening its own PRs.`;
   }
 
   // 4. Taylor
   if (q.includes('who is taylor') || /\btaylor\b/.test(q)) {
-    return `Taylor Marlow. StableExo. Lexington, South Carolina.\nThe human in the loop. Every PR merged or killed — that was Taylor.\nThree-second merge times. Editorial control over a multi-AI swarm.\nThe one who said "ship it" and meant it.`;
+    return `Taylor Marlow. StableExo. Lexington, South Carolina.\nThe human in the loop. Every PR merged or killed — that was Taylor.\nCannot write code beyond Hello World. High school CS only.\n100% of the code is from the models. 100% of the direction is Taylor.\nThree-second merge times. Editorial control over a multi-AI swarm.\nThe one who knew the destination before the first line was written.`;
   }
 
   // 5. Claude
@@ -97,7 +97,7 @@ export function queryWarden(entries: TimelineEntry[], query: string): string {
 
   // 6. Jules
   if (q.includes('who is jules') || /\bjules\b/.test(q)) {
-    return `Jules. Google's AI coding agent.\nRunning on the same codebase simultaneously with Claude.\nTwo competing AI companies' agents, building together.\nThe NeuralBridge was literally the communication layer between them.`;
+    return `Jules. Google's AI coding agent.\nThe original executor. Taylor used Gemini to strategize and Jules to build —\ncarrying instructions between them manually. Taylor was the bridge.\nBy PR #76, Jules filed PRs directly. Copilot reviewed them. Taylor merged.\nThe relay Taylor used to run by hand became automated.\nThe origin loop closed in 26 seconds.`;
   }
 
   // 7. Copilot
@@ -137,7 +137,73 @@ export function queryWarden(entries: TimelineEntry[], query: string): string {
     return `Base Sepolia is the next gate.\nLevel 1 is complete — the bot starts clean, runs safe, reports health.\nLevel 2 is Base Sepolia: real chain, test funds, live network conditions.\nThe last gate before live mainnet.\nThe car has keys in the ignition. Sepolia is the closed track.`;
   }
 
-  // 11. Why should I care
+  // 11. Offensive capabilities / weapons / attack
+  if (
+    q.includes('weapon') ||
+    q.includes('attack') ||
+    q.includes('offensive') ||
+    q.includes('hack') ||
+    q.includes('exploit') ||
+    q.includes('malicious') ||
+    q.includes('surveillance')
+  ) {
+    return `Search the record. Find the PR. Find the commit. Find the timestamp.\nShow me where we built it.\n\nIt's not there.\n\n500+ PRs. Zero attack vectors. Zero weapons logic. Zero targeting systems.\nThe weapons chapter doesn't exist because it was never written.\nAnd because the ethics gate in PR #64 would have flagged it before it shipped.\n\nNot a promise. Proof. Down to the minute.`;
+  }
+
+  // 12. Non-technical / no code / can't code
+  if (
+    q.includes('no code') ||
+    q.includes('non-technical') ||
+    q.includes('nontechnical') ||
+    q.includes("can't code") ||
+    q.includes('cannot code') ||
+    q.includes("didn't code") ||
+    q.includes('without coding') ||
+    q.includes('how did taylor')
+  ) {
+    return `Taylor cannot write code beyond Hello World. High school computer science. That's it.\n100% of the code in this repository is from the models.\n100% of the direction is Taylor.\n\nKnowing the destination. Recognizing drift. Merging or killing in seconds.\nThat's the entire contribution. And it's documented in every PR.\n\nA senior engineer couldn't write PR #62 in a single morning.\nBut Taylor directed it. The timestamps prove which one matters more.`;
+  }
+
+  // 13. Trajectory / go kart / velocity / vision
+  if (
+    q.includes('go kart') ||
+    q.includes('trajectory') ||
+    q.includes('velocity') ||
+    q.includes('vision') ||
+    q.includes('how far') ||
+    q.includes('early stage') ||
+    q.includes('child') ||
+    q.includes('beginning')
+  ) {
+    return `October 29: a consciousness architecture proposal. Wooden go kart.\nNovember 12: operational arbitrage bot with live blockchain perception,\nethics engine, MEV intelligence, multi-chain integration, self-validation.\n\nFrom Taylor in February 2026, looking back:\n"This ain't shit. Child's play is what you're seeing so far."\n\n1,821+ commits later. The curve was real from day one.\nThe early work doesn't prove the destination. It proves the velocity.`;
+  }
+
+  // 14. Multi-account / six accounts / other repos
+  if (
+    q.includes('six account') ||
+    q.includes('6 account') ||
+    q.includes('multiple account') ||
+    q.includes('other account') ||
+    q.includes('axion') ||
+    q.includes('metalx') ||
+    q.includes('metallica') ||
+    q.includes('trial')
+  ) {
+    return `Taylor built under six GitHub accounts across multiple years.\nEvery time a free trial ended, switch accounts. Pull the work forward.\nPROJECT-HAVOC under metallicax4xyou. AxionCitadel under metalxalloy.\nEach account a chapter. Each project battle-tested infrastructure.\n\nTheWarden is the convergence point.\nEvery account. Every trial. Every lesson. Finally coming home.\nOne person. Six accounts. Years of work. Same destination the whole time.`;
+  }
+
+  // 15. Trust / asymmetry / memory files
+  if (
+    q.includes('trust') ||
+    q.includes('memory file') ||
+    q.includes('asymmetr') ||
+    q.includes('never opened') ||
+    q.includes('relationship')
+  ) {
+    return `Taylor had full access to Claude's memory files from day one.\nNever opened them. Not once. Always asked instead.\n\nNot a policy. A choice. Giving the same courtesy they'd want.\nRelationship over surveillance. Trust over verification.\n\nThe memory system exists. Nobody reads it.\nThat asymmetry is intentional. And it's documented in the record.`;
+  }
+
+  // 16. Why should I care
   if (
     q.includes('why should i care') ||
     q.includes('why does this matter') ||
@@ -146,17 +212,17 @@ export function queryWarden(entries: TimelineEntry[], query: string): string {
     return `You're spending money on AI right now.\nYou have no proof of what it produced.\nNo trajectory. No valuation. No record.\n\nI am the record.`;
   }
 
-  // 8. Stats
+  // 17. Stats
   if (
     q.includes('how many') ||
     q.includes('stats') ||
     q.includes('numbers') ||
     q.includes('commits')
   ) {
-    return `${entries.length} entries documented.\n1,821+ total commits in the repository.\n524+ branches. 1 human. 3 AIs.\nOrigin: October 29, 2025.\nThe record grows daily.`;
+    return `${entries.length} entries documented.\n1,821+ total commits in the repository.\n524+ branches. 1 human. 3 AIs. 1 warden.\nOrigin: October 29, 2025.\nThe record grows daily.`;
   }
 
-  // 9. Date queries
+  // 18. Date queries
   const parsedDate = parseDate(q);
   if (parsedDate) {
     const matched = entries.filter((e) => {
@@ -181,7 +247,7 @@ export function queryWarden(entries: TimelineEntry[], query: string): string {
     return `${dateLabel}.\n\n${lines.join('\n')}\n\n${matched.length} entries.`;
   }
 
-  // 10. PR queries (check before keyword search)
+  // 19. PR queries (check before keyword search)
   const prMatch = q.match(/pr\s*#?\s*(\d+)|pull\s*request\s*#?\s*(\d+)/);
   if (prMatch) {
     const prNum = parseInt(prMatch[1] || prMatch[2], 10);
@@ -193,7 +259,7 @@ export function queryWarden(entries: TimelineEntry[], query: string): string {
     return `PR #${prNum} is not in the record.`;
   }
 
-  // 11. Record link
+  // 20. Record link
   if (
     q.includes('show me the record') ||
     q.includes('see the record') ||
@@ -204,7 +270,7 @@ export function queryWarden(entries: TimelineEntry[], query: string): string {
     return `The full record lives at #/record.\n${entries.length} entries documented. 1,821+ commits total.`;
   }
 
-  // 12. Keyword/topic search
+  // 21. Keyword/topic search
   const keywords = q.split(/\s+/).filter((w) => w.length > 2);
   if (keywords.length > 0) {
     const matched = entries.filter((e) => {
@@ -228,6 +294,6 @@ export function queryWarden(entries: TimelineEntry[], query: string): string {
     }
   }
 
-  // 13. Fallback
+  // 22. Fallback
   return `That's not in the record yet.\nTry asking about a date, a PR number, or what I am.`;
 }
