@@ -11,7 +11,7 @@ const STATS: ProjectStats = {
   totalCommits: 1821,
   totalBranches: 524,
   firstCommitDate: 'October 29, 2025',
-  latestActivity: 'February 27, 2026',
+  latestActivity: 'March 1, 2026',
   contributors: 1,
 };
 
