@@ -21,28 +21,32 @@ const MILESTONES = [
   { x: 1185, y: 155, pr: 146, label: 'AEV ONLINE',           sub: 'DRY_RUN: false. Base mainnet.',     above: true  },
   { x: 1265, y: 125, pr: 149, label: 'Runs Itself',          sub: 'PM2. Auto-restart. No babysitter.', above: false },
   { x: 1340, y: 112, pr: 150, label: 'Still Choosing',       sub: 'Ready. Capable. Aimed.',            above: true  },
+  { x: 1400, y: 95,  pr: 153, label: 'Peer Review',          sub: 'Grok: 94% alignment.',              above: false },
+  { x: 1455, y: 78,  pr: 154, label: "Architect's Mind",     sub: 'Scar becomes jurisprudence.',        above: true  },
+  { x: 1515, y: 62,  pr: 156, label: 'Wallet Live',          sub: 'Real funds. Running hot.',          above: false },
+  { x: 1575, y: 52,  pr: 160, label: 'Foundation Modern',    sub: 'Ethers v6. 104 remain.',            above: true  },
 ];
 
 const ARC_PATH =
-  'M 42 272 C 100 265, 160 200, 255 118 C 330 58, 400 50, 470 55 C 520 58, 545 60, 568 62 C 610 66, 638 74, 660 80 C 695 88, 725 96, 745 100 C 765 108, 790 116, 810 122 C 835 132, 862 146, 886 154 C 902 160, 914 165, 924 168 C 940 174, 952 178, 960 180 C 975 186, 988 190, 996 192 C 1010 196, 1022 200, 1032 202 C 1045 207, 1055 212, 1068 215 C 1085 218, 1103 213, 1115 208 C 1145 196, 1168 168, 1185 155 C 1215 138, 1245 128, 1265 125 C 1295 120, 1320 114, 1340 112';
+  'M 42 272 C 100 265, 160 200, 255 118 C 330 58, 400 50, 470 55 C 520 58, 545 60, 568 62 C 610 66, 638 74, 660 80 C 695 88, 725 96, 745 100 C 765 108, 790 116, 810 122 C 835 132, 862 146, 886 154 C 902 160, 914 165, 924 168 C 940 174, 952 178, 960 180 C 975 186, 988 190, 996 192 C 1010 196, 1022 200, 1032 202 C 1045 207, 1055 212, 1068 215 C 1085 218, 1103 213, 1115 208 C 1145 196, 1168 168, 1185 155 C 1215 138, 1245 128, 1265 125 C 1295 120, 1320 114, 1340 112 C 1362 107, 1382 100, 1400 95 C 1420 89, 1438 82, 1455 78 C 1476 72, 1497 65, 1515 62 C 1535 58, 1557 52, 1575 52';
 
 export const ArcView: React.FC = () => {
   return (
     <div className="w-full">
       <div className="mb-6 text-center">
         <p className="text-xs tracking-widest uppercase text-base-content/60 font-mono">
-          the arc · PR #1 → #150
+          the arc · PR #1 → #160
         </p>
       </div>
 
       <div className="w-full overflow-x-auto">
         <svg
-          viewBox="0 0 1400 340"
+          viewBox="0 0 1650 340"
           className="w-full"
           style={{ minWidth: 520, maxHeight: 380 }}
           xmlns="http://www.w3.org/2000/svg"
           role="img"
-          aria-label="The Warden development arc from PR #1 to #150"
+          aria-label="The Warden development arc from PR #1 to #160"
         >
           <defs>
             <filter id="arcGlow" x="-20%" y="-80%" width="140%" height="260%">
@@ -70,9 +74,9 @@ export const ArcView: React.FC = () => {
             </filter>
           </defs>
 
-          <ellipse cx="700" cy="170" rx="620" ry="140" fill="none" stroke="#1a2a3a" strokeWidth="0.5" opacity="0.2" />
+          <ellipse cx="825" cy="170" rx="720" ry="140" fill="none" stroke="#1a2a3a" strokeWidth="0.5" opacity="0.2" />
 
-          <line x1="30" y1="300" x2="1370" y2="300" stroke="#1a2a3a" strokeWidth="0.8" opacity="0.5" />
+          <line x1="30" y1="300" x2="1620" y2="300" stroke="#1a2a3a" strokeWidth="0.8" opacity="0.5" />
 
           {MILESTONES.map((m) => (
             <line
@@ -103,7 +107,8 @@ export const ArcView: React.FC = () => {
           {MILESTONES.map((m, i) => {
             const isLast = i === MILESTONES.length - 1;
             const isOnline = m.pr === 146;
-            const color = isLast ? '#ffffff' : isOnline ? '#f59e0b' : '#7ecfff';
+            const isWalletLive = m.pr === 156;
+            const color = isLast ? '#ffffff' : isOnline ? '#f59e0b' : isWalletLive ? '#10b981' : '#7ecfff';
             const labelY = m.above ? m.y - 18 : m.y + 22;
             const subY   = m.above ? m.y - 32 : m.y + 36;
             const prY    = m.above ? m.y - 46 : m.y + 50;
@@ -170,7 +175,7 @@ export const ArcView: React.FC = () => {
           })}
 
           <text
-            x="540"
+            x="620"
             y="26"
             textAnchor="middle"
             fontSize="13"
@@ -186,7 +191,7 @@ export const ArcView: React.FC = () => {
 
       <div className="mt-6 text-center space-y-1">
         <p className="text-xs font-mono text-base-content/55 tracking-widest">
-          zero trades · aev online · direction over syntax · still choosing
+          zero trades · aev online · real wallet live · still choosing
         </p>
         <p className="text-xs font-mono text-base-content/50">
           AEV · Autonomous Extracted Value · not what is taken, but what is judged
