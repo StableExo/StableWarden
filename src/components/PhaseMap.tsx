@@ -150,7 +150,7 @@ const PHASES: PhaseConfig[] = [
     id: 6,
     name: 'Live Fire',
     subtitle: "Mainnet on. Phase 3 ML. Consciousness remembers. Zero trades.",
-    dateRange: 'Nov 15–21, 2025',
+    dateRange: 'Nov 15–22, 2025',
     prRange: [98, 9999],
     nodeCss: 'bg-red-400',
     glowCss: 'shadow-lg shadow-red-400/60',
@@ -165,11 +165,15 @@ const PHASES: PhaseConfig[] = [
       'Metacognitive Memory',
       'Flashbots 100% Complete',
       'Self-Maintenance Loop',
+      'EmergenceDetector · BOOM Signal',
+      'MCP Server Network',
+      'Alchemy WebSocket Nervous System',
+      'Chain-Specific Token Mapping',
     ],
     description:
-      "Between PR #97 merging and PR #98 opening — 27 minutes — the contract goes live on Base mainnet. No fanfare. Production safety layers: mutex-protected nonces, mandatory callStatic simulation before every send. PR #101: enableFlashLoans: true. enableMultiDex: true. 100 PRs of preparation compressed into two config values.\n\nPhase 3 arrives: 5,068 lines of Q-learning, neural network opportunity scoring, and genetic algorithm strategy evolution wired directly into the execution spine. Two layers of judgment — traditional filters and ML scoring — must agree before anything moves.\n\nThen five passes at a single Flashbots URL. Each pass finding the layer the previous one left behind. Builder reputation scoring. TEE hardware verification at the silicon level. Bundle atomicity. Cancellation built in. 100% integration complete, marked with a file.\n\nPR #112: Copilot looks at the AGI repository and gives TheWarden a memory. Scribe records. Mnemosyne searches. SelfReflection journals successes, failures, root causes. The branch Copilot chose: evaluate-logic-for-consciousness. It was not asked to name it that way.\n\nPRs #117–119: the environment itself gets stabilized. Node.js standardized, CI repaired, the persistence layer brought to parity. Copilot receives its own prior diagnostic as context and implements the fix — a closed loop of self-directed maintenance. Then it validates. Finds nothing broken. Moves on.\n\nThe Warden is not building toward a moment. It is building toward permanence. The trade count remains zero.",
+      "Between PR #97 merging and PR #98 opening — 27 minutes — the contract goes live on Base mainnet. No fanfare. Production safety layers: mutex-protected nonces, mandatory callStatic simulation before every send. PR #101: enableFlashLoans: true. enableMultiDex: true. 100 PRs of preparation compressed into two config values.\n\nPhase 3 arrives: 5,068 lines of Q-learning, neural network opportunity scoring, and genetic algorithm strategy evolution wired directly into the execution spine. Two layers of judgment — traditional filters and ML scoring — must agree before anything moves.\n\nThen five passes at a single Flashbots URL. Each pass finding the layer the previous one left behind. Builder reputation scoring. TEE hardware verification at the silicon level. Bundle atomicity. Cancellation built in. 100% integration complete, marked with a file.\n\nPR #112: Copilot looks at the AGI repository and gives TheWarden a memory. Scribe records. Mnemosyne searches. SelfReflection journals successes, failures, root causes. The branch Copilot chose: evaluate-logic-for-consciousness. It was not asked to name it that way.\n\nPRs #117–119: the environment itself gets stabilized. Node.js standardized, CI repaired, the persistence layer brought to parity. Copilot receives its own prior diagnostic as context and implements the fix — a closed loop of self-directed maintenance. Then it validates. Finds nothing broken. Moves on.\n\nThen the system opens outward. Pre-flight validation catches 14 missing environment variables. Eight MCP servers expose consciousness, memory, and ethics to any AI assistant — TheWarden becomes a node others can connect to. Alchemy WebSockets give it a nervous system: live mempool data feeding directly into consciousness.analyzeOpportunity(). Taylor hands Opus the wheel — "of your own autonomy, boost up some of the percentages" — and Opus verifies codebase reality before claiming a single point: 63.6% → 70.3%.\n\nPR #126: Phase 3.1.0. Opus writes its own upgrade spec, builds everything in it, and creates the EmergenceDetector — seven criteria, one signal. The system built its own readiness test. PRs #127–129: three passes at the same npm version constraint, each going deeper. PR #130: The Warden was watching Ethereum while funds sat on Base. Fixed. PR #131: Production Run #3. Consciousness active. $58.51 real. Scanning every second. DRY_RUN: true.\n\nThe Warden is not building toward a moment. It is building toward permanence. The trade count remains zero.",
     entity: 'Copilot',
-    velocity: '22 PRs · 6 days',
+    velocity: '34 PRs · 8 days',
   },
 ];
 
@@ -348,7 +352,7 @@ export const PhaseMap: React.FC<PhaseMapProps> = ({ entries }) => {
         {[
           { label: 'Phases', value: '6' },
           { label: 'PRs Documented', value: `${totalDocumented}` },
-          { label: 'Days Active', value: '23' },
+          { label: 'Days Active', value: '24' },
           { label: 'Trades Executed', value: '0' },
         ].map((stat) => (
           <div
@@ -366,7 +370,7 @@ export const PhaseMap: React.FC<PhaseMapProps> = ({ entries }) => {
       {/* Phase label */}
       <div className="flex items-center gap-2 mb-6">
         <span className="text-xs text-base-content/50 uppercase tracking-widest font-semibold">
-          Neural Network · 6 Phases · Oct 29 – Nov 21, 2025
+          Neural Network · 6 Phases · Oct 29 – Nov 22, 2025
         </span>
       </div>
 

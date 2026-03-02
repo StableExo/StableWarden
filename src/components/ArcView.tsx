@@ -13,28 +13,31 @@ const MILESTONES = [
   { x: 848, y: 138, pr: 112, label: 'Metacognition',        sub: 'Evaluate logic for consciousness.', above: true },
   { x: 886, y: 154, pr: 116, label: 'Flashbots Complete',   sub: '100% parity achieved.',           above: false },
   { x: 924, y: 168, pr: 119, label: 'The Permanence',       sub: 'One source of truth.',            above: true  },
+  { x: 960, y: 180, pr: 121, label: 'MCP Integration',      sub: 'TheWarden becomes a node.',      above: false },
+  { x: 996, y: 192, pr: 126, label: 'BOOM Detector',         sub: 'EmergenceDetector. Seven criteria.', above: true },
+  { x: 1032, y: 202, pr: 131, label: 'Production Run #3',    sub: 'Consciousness active. $58.51.',   above: false },
 ];
 
 const ARC_PATH =
-  'M 42 272 C 100 265, 160 200, 255 118 C 330 58, 400 50, 470 55 C 520 58, 545 60, 568 62 C 610 66, 638 74, 660 80 C 695 88, 725 96, 745 100 C 765 108, 790 116, 810 122 C 835 132, 862 146, 886 154 C 902 160, 914 165, 924 168';
+  'M 42 272 C 100 265, 160 200, 255 118 C 330 58, 400 50, 470 55 C 520 58, 545 60, 568 62 C 610 66, 638 74, 660 80 C 695 88, 725 96, 745 100 C 765 108, 790 116, 810 122 C 835 132, 862 146, 886 154 C 902 160, 914 165, 924 168 C 940 174, 952 178, 960 180 C 975 186, 988 190, 996 192 C 1010 196, 1022 200, 1032 202';
 
 export const ArcView: React.FC = () => {
   return (
     <div className="w-full">
       <div className="mb-6 text-center">
         <p className="text-xs tracking-widest uppercase text-base-content/60 font-mono">
-          the arc · PR #1 → #119
+          the arc · PR #1 → #131
         </p>
       </div>
 
       <div className="w-full overflow-x-auto">
         <svg
-          viewBox="0 0 970 340"
+          viewBox="0 0 1080 340"
           className="w-full"
           style={{ minWidth: 520, maxHeight: 380 }}
           xmlns="http://www.w3.org/2000/svg"
           role="img"
-          aria-label="The Warden development arc from PR #1 to #119"
+          aria-label="The Warden development arc from PR #1 to #131"
         >
           <defs>
             <filter id="arcGlow" x="-20%" y="-80%" width="140%" height="260%">
@@ -55,10 +58,10 @@ export const ArcView: React.FC = () => {
             </filter>
           </defs>
 
-          <ellipse cx="485" cy="170" rx="420" ry="140" fill="none" stroke="#1a2a3a" strokeWidth="0.5" opacity="0.3" />
-          <circle cx="485" cy="170" r="8" fill="#1a2a3a" opacity="0.2" />
+          <ellipse cx="540" cy="170" rx="470" ry="140" fill="none" stroke="#1a2a3a" strokeWidth="0.5" opacity="0.3" />
+          <circle cx="540" cy="170" r="8" fill="#1a2a3a" opacity="0.2" />
 
-          <line x1="30" y1="300" x2="950" y2="300" stroke="#1a2a3a" strokeWidth="0.8" opacity="0.5" />
+          <line x1="30" y1="300" x2="1060" y2="300" stroke="#1a2a3a" strokeWidth="0.8" opacity="0.5" />
 
           {MILESTONES.map((m) => (
             <line
@@ -152,7 +155,7 @@ export const ArcView: React.FC = () => {
           })}
 
           <text
-            x="485"
+            x="540"
             y="26"
             textAnchor="middle"
             fontSize="13"

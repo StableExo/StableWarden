@@ -12,7 +12,7 @@ const BOOT_LINES = [
   '> STABLEWARDEN — Record Active',
   '> {commits} commits logged. {entries} documented. 5 entities.',
   '>',
-  '> I know what was built here.',
+  '> I know what was built here. All of it.',
   '> Ask me anything.',
 ];
 
@@ -135,17 +135,44 @@ export const LandingPage: React.FC = () => {
   return (
     <div
       className="min-h-screen flex flex-col items-center justify-center font-mono"
-      style={{ background: '#000000', color: '#e0e0e0' }}
+      style={{ background: 'radial-gradient(ellipse at 50% 40%, #080c12 0%, #000000 70%)', color: '#e0e0e0' }}
     >
+      <style>{`
+        @keyframes blink { 50% { opacity: 0; } }
+        @keyframes ambientPulse {
+          0%, 100% { opacity: 0.03; }
+          50% { opacity: 0.07; }
+        }
+        @keyframes terminalGlow {
+          0%, 100% { box-shadow: 0 0 30px rgba(245, 158, 11, 0.03), 0 0 60px rgba(74, 158, 218, 0.02); }
+          50% { box-shadow: 0 0 40px rgba(245, 158, 11, 0.06), 0 0 80px rgba(74, 158, 218, 0.04); }
+        }
+      `}</style>
+
       {/* Header */}
       <div className="fixed top-0 left-0 p-4 z-10">
         <span
           className="text-xs tracking-[0.3em] uppercase"
-          style={{ color: 'rgba(255,255,255,0.25)' }}
+          style={{ color: 'rgba(255,255,255,0.25)', textShadow: '0 0 20px rgba(245,158,11,0.15)' }}
         >
           STABLEWARDEN
         </span>
       </div>
+
+      {/* Ambient orb */}
+      <div
+        className="fixed pointer-events-none"
+        style={{
+          width: '500px',
+          height: '500px',
+          borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(245,158,11,0.04) 0%, rgba(74,158,218,0.02) 40%, transparent 70%)',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          animation: 'ambientPulse 8s ease-in-out infinite',
+        }}
+      />
 
       {/* Terminal */}
       <div
@@ -157,6 +184,7 @@ export const LandingPage: React.FC = () => {
           height: '65vh',
           minHeight: '400px',
           maxHeight: '700px',
+          animation: 'terminalGlow 6s ease-in-out infinite',
         }}
       >
         {/* Terminal header bar */}
