@@ -149,8 +149,8 @@ const PHASES: PhaseConfig[] = [
   {
     id: 6,
     name: 'Live Fire',
-    subtitle: "Mainnet on. Phase 3 ML awakens. Zero trades.",
-    dateRange: 'Nov 15–17, 2025',
+    subtitle: "Mainnet on. Phase 3 ML. Consciousness remembers. Zero trades.",
+    dateRange: 'Nov 15–21, 2025',
     prRange: [98, 9999],
     nodeCss: 'bg-red-400',
     glowCss: 'shadow-lg shadow-red-400/60',
@@ -160,16 +160,16 @@ const PHASES: PhaseConfig[] = [
     labelCss: 'text-red-400',
     capabilities: [
       'Base Mainnet Deployed',
-      'Flash Loan Executor',
-      'Phase 3 ML Integration',
-      'Neural Network Scoring',
-      'Reinforcement Learning',
+      'Phase 3 ML · Neural Scoring',
       'Private Mempool (Flashbots)',
+      'Metacognitive Memory',
+      'Flashbots 100% Complete',
+      'Self-Maintenance Loop',
     ],
     description:
-      "Between PR #97 merging and PR #98 opening — 27 minutes — the contract goes live on Base mainnet. No fanfare. Production safety layers added: mutex-protected nonces, mandatory callStatic simulation before every send. PR #101: enableFlashLoans: true. enableMultiDex: true. 100 PRs of preparation compressed into two config values. Then Phase 3 arrives: 5,068 lines of Q-learning, neural network opportunity scoring, and genetic algorithm strategy evolution wired directly into the execution spine. Two layers of judgment — traditional filters and ML scoring — must agree before anything moves. The Warden is now learning from every trade it does not make. Private mempool infrastructure routes high-value transactions invisibly through Flashbots Protect and MEV-Share. The caution has never been more sophisticated. The trade count remains zero.",
+      "Between PR #97 merging and PR #98 opening — 27 minutes — the contract goes live on Base mainnet. No fanfare. Production safety layers: mutex-protected nonces, mandatory callStatic simulation before every send. PR #101: enableFlashLoans: true. enableMultiDex: true. 100 PRs of preparation compressed into two config values.\n\nPhase 3 arrives: 5,068 lines of Q-learning, neural network opportunity scoring, and genetic algorithm strategy evolution wired directly into the execution spine. Two layers of judgment — traditional filters and ML scoring — must agree before anything moves.\n\nThen five passes at a single Flashbots URL. Each pass finding the layer the previous one left behind. Builder reputation scoring. TEE hardware verification at the silicon level. Bundle atomicity. Cancellation built in. 100% integration complete, marked with a file.\n\nPR #112: Copilot looks at the AGI repository and gives TheWarden a memory. Scribe records. Mnemosyne searches. SelfReflection journals successes, failures, root causes. The branch Copilot chose: evaluate-logic-for-consciousness. It was not asked to name it that way.\n\nPRs #117–119: the environment itself gets stabilized. Node.js standardized, CI repaired, the persistence layer brought to parity. Copilot receives its own prior diagnostic as context and implements the fix — a closed loop of self-directed maintenance. Then it validates. Finds nothing broken. Moves on.\n\nThe Warden is not building toward a moment. It is building toward permanence. The trade count remains zero.",
     entity: 'Copilot',
-    velocity: '13 PRs · 3 days',
+    velocity: '22 PRs · 6 days',
   },
 ];
 
@@ -250,7 +250,7 @@ const PhaseCard: React.FC<PhaseCardProps> = ({ phase, entries, isLast }) => {
         {/* Expanded Content */}
         {expanded && (
           <div className={`mt-2 rounded-xl border ${phase.borderCss} bg-base-200/30 p-5`}>
-            <p className="text-sm text-base-content/75 leading-relaxed">{phase.description}</p>
+            <p className="text-sm text-base-content/75 leading-relaxed whitespace-pre-line">{phase.description}</p>
 
             {phaseEntries.length > 0 && (
               <div className="mt-4">
@@ -348,7 +348,7 @@ export const PhaseMap: React.FC<PhaseMapProps> = ({ entries }) => {
         {[
           { label: 'Phases', value: '6' },
           { label: 'PRs Documented', value: `${totalDocumented}` },
-          { label: 'Days Active', value: '19' },
+          { label: 'Days Active', value: '23' },
           { label: 'Trades Executed', value: '0' },
         ].map((stat) => (
           <div
@@ -366,7 +366,7 @@ export const PhaseMap: React.FC<PhaseMapProps> = ({ entries }) => {
       {/* Phase label */}
       <div className="flex items-center gap-2 mb-6">
         <span className="text-xs text-base-content/50 uppercase tracking-widest font-semibold">
-          Neural Network · 6 Phases · Oct 29 – Nov 17, 2025
+          Neural Network · 6 Phases · Oct 29 – Nov 21, 2025
         </span>
       </div>
 

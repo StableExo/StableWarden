@@ -1,37 +1,40 @@
 import React from 'react';
 
 const MILESTONES = [
-  { x: 42,  y: 272, pr: 1,   label: 'Genesis',             sub: 'First commit. Oct 29.',     above: false },
-  { x: 155, y: 196, pr: 19,  label: 'Consciousness',        sub: 'Architecture laid.',         above: true  },
-  { x: 255, y: 118, pr: 28,  label: 'Ethics Gate',          sub: 'Activated.',                 above: false },
-  { x: 365, y: 68,  pr: 50,  label: 'Relay Swarm',          sub: 'Copilot self-directs.',      above: true  },
-  { x: 470, y: 55,  pr: 72,  label: 'The Inheritance',      sub: 'AxionCitadel absorbed.',     above: false },
-  { x: 568, y: 62,  pr: 90,  label: 'Live Mainnet',         sub: '4 AM. Base deployed.',       above: true  },
-  { x: 660, y: 80,  pr: 100, label: 'Zero Trades',          sub: 'The caution holds.',         above: false },
-  { x: 745, y: 100, pr: 105, label: 'The Naming',           sub: 'ArbitrageBot → TheWarden.',  above: true  },
-  { x: 810, y: 122, pr: 110, label: 'The Learning',         sub: 'Phase 3 awakens.',           above: false },
+  { x: 42,  y: 272, pr: 1,   label: 'Genesis',             sub: 'First commit. Oct 29.',          above: false },
+  { x: 155, y: 196, pr: 19,  label: 'Consciousness',        sub: 'Architecture laid.',              above: true  },
+  { x: 255, y: 118, pr: 28,  label: 'Ethics Gate',          sub: 'Activated.',                      above: false },
+  { x: 365, y: 68,  pr: 50,  label: 'Relay Swarm',          sub: 'Copilot self-directs.',           above: true  },
+  { x: 470, y: 55,  pr: 72,  label: 'The Inheritance',      sub: 'AxionCitadel absorbed.',          above: false },
+  { x: 568, y: 62,  pr: 90,  label: 'Live Mainnet',         sub: '4 AM. Base deployed.',            above: true  },
+  { x: 660, y: 80,  pr: 100, label: 'Zero Trades',          sub: 'The caution holds.',              above: false },
+  { x: 745, y: 100, pr: 105, label: 'The Naming',           sub: 'ArbitrageBot → TheWarden.',       above: true  },
+  { x: 810, y: 122, pr: 110, label: 'The Learning',         sub: 'Phase 3 awakens.',                above: false },
+  { x: 848, y: 138, pr: 112, label: 'Metacognition',        sub: 'Evaluate logic for consciousness.', above: true },
+  { x: 886, y: 154, pr: 116, label: 'Flashbots Complete',   sub: '100% parity achieved.',           above: false },
+  { x: 924, y: 168, pr: 119, label: 'The Permanence',       sub: 'One source of truth.',            above: true  },
 ];
 
 const ARC_PATH =
-  'M 42 272 C 100 265, 160 200, 255 118 C 330 58, 400 50, 470 55 C 520 58, 545 60, 568 62 C 610 66, 638 74, 660 80 C 695 88, 725 96, 745 100 C 765 108, 790 116, 810 122';
+  'M 42 272 C 100 265, 160 200, 255 118 C 330 58, 400 50, 470 55 C 520 58, 545 60, 568 62 C 610 66, 638 74, 660 80 C 695 88, 725 96, 745 100 C 765 108, 790 116, 810 122 C 835 132, 862 146, 886 154 C 902 160, 914 165, 924 168';
 
 export const ArcView: React.FC = () => {
   return (
     <div className="w-full">
       <div className="mb-6 text-center">
         <p className="text-xs tracking-widest uppercase text-base-content/60 font-mono">
-          the arc · PR #1 → #110
+          the arc · PR #1 → #119
         </p>
       </div>
 
       <div className="w-full overflow-x-auto">
         <svg
-          viewBox="0 0 860 340"
+          viewBox="0 0 970 340"
           className="w-full"
-          style={{ minWidth: 480, maxHeight: 380 }}
+          style={{ minWidth: 520, maxHeight: 380 }}
           xmlns="http://www.w3.org/2000/svg"
           role="img"
-          aria-label="The Warden development arc from PR #1 to #110"
+          aria-label="The Warden development arc from PR #1 to #119"
         >
           <defs>
             <filter id="arcGlow" x="-20%" y="-80%" width="140%" height="260%">
@@ -52,10 +55,10 @@ export const ArcView: React.FC = () => {
             </filter>
           </defs>
 
-          <ellipse cx="430" cy="170" rx="370" ry="140" fill="none" stroke="#1a2a3a" strokeWidth="0.5" opacity="0.3" />
-          <circle cx="430" cy="170" r="8" fill="#1a2a3a" opacity="0.2" />
+          <ellipse cx="485" cy="170" rx="420" ry="140" fill="none" stroke="#1a2a3a" strokeWidth="0.5" opacity="0.3" />
+          <circle cx="485" cy="170" r="8" fill="#1a2a3a" opacity="0.2" />
 
-          <line x1="30" y1="300" x2="840" y2="300" stroke="#1a2a3a" strokeWidth="0.8" opacity="0.5" />
+          <line x1="30" y1="300" x2="950" y2="300" stroke="#1a2a3a" strokeWidth="0.8" opacity="0.5" />
 
           {MILESTONES.map((m) => (
             <line
@@ -149,7 +152,7 @@ export const ArcView: React.FC = () => {
           })}
 
           <text
-            x="430"
+            x="485"
             y="26"
             textAnchor="middle"
             fontSize="13"
