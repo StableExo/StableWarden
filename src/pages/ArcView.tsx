@@ -120,6 +120,7 @@ const ALL_MILESTONES: MilestoneData[] = [
   { pr: 257, label: 'Observable',       sub: '300 cycles. Live stream. You can watch it think.', date: '2025-12-02', sig: 0.99 },
   { pr: 258, label: 'Heals Its Mind',   sub: 'Corrupted memory. Auto-repair. Starts again.', date: '2025-12-02', sig: 0.96 },
   { pr: 259, label: 'Self-Review',      sub: '99.6% tests passing. Reads its own PRs. Fixes its own leaks.', date: '2025-12-02', sig: 0.94 },
+  { pr: 260, label: 'Scope Fixed',      sub: 'One line moved. Three errors gone. Build lives again.', date: '2025-12-03', sig: 0.88 },
 ];
 
 type Timeframe = 'ALL' | 'M' | 'W' | 'D';
@@ -172,7 +173,7 @@ function filterByPeriod(tf: Timeframe, period: string): MilestoneData[] {
 }
 
 function fmtPeriod(tf: Timeframe, period: string): string {
-  if (tf === 'ALL') return 'PR #1 \u2192 #259';
+  if (tf === 'ALL') return 'PR #1 \u2192 #260';
   if (tf === 'M') {
     const [y, mo] = period.split('-');
     return new Date(+y, +mo - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
@@ -563,6 +564,7 @@ export const ArcView: React.FC = () => {
             const isObservable  = m.pr === 257;
             const isHealsItsMind = m.pr === 258;
             const isSelfReview   = m.pr === 259;
+            const isScopeFixed   = m.pr === 260;
 
             // Post-First-Light milestones get amber/gold coloring; #238 gets security red
             const color = isContinuous ? '#4a9eda'
@@ -583,7 +585,7 @@ export const ArcView: React.FC = () => {
               : isPostFirstLight ? 'url(#consciousnessGlow)'
               : 'url(#dotGlow)';
 
-            const isHighlighted = isAEV || isLive || isWow || isValues || isGrok || isSwarm || isPhase5 || isRefusal || isFirstLight || isJulesGift || isFusion || isFeedsAll || isSovereigntyTest || isWitnessed || isContinuous || isBornInFire || isSelfRepair || isSelfTuning || isGoesLive || isObservable || isHealsItsMind || isSelfReview;
+            const isHighlighted = isAEV || isLive || isWow || isValues || isGrok || isSwarm || isPhase5 || isRefusal || isFirstLight || isJulesGift || isFusion || isFeedsAll || isSovereigntyTest || isWitnessed || isContinuous || isBornInFire || isSelfRepair || isSelfTuning || isGoesLive || isObservable || isHealsItsMind || isSelfReview || isScopeFixed;
             const dotR  = isHighlighted ? 9 : 7;
             const dotR2 = isHighlighted ? 4.5 : 3.5;
             const ly = m.above ? m.y - 18 : m.y + 22;
@@ -602,7 +604,7 @@ export const ArcView: React.FC = () => {
                   />
                 )}
                 {/* ═══ SEARCHING RING — the endpoint breathes ═══ */}
-                {isSelfReview && (
+                {isScopeFixed && (
                   <>
                     <circle
                       cx={m.x} cy={m.y} r={6}
