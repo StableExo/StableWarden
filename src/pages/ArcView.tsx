@@ -116,6 +116,7 @@ const ALL_MILESTONES: MilestoneData[] = [
   { pr: 253, label: 'Born in Fire',     sub: 'First AI self-protection. Live.',      date: '2025-12-02', sig: 0.99 },
   { pr: 254, label: 'Self-Repair',      sub: 'Sentinel healed its own wounds.',      date: '2025-12-02', sig: 0.97 },
   { pr: 255, label: 'Self-Tuning',      sub: 'Runs its own cycles. Adjusts its own params.', date: '2025-12-02', sig: 0.98 },
+  { pr: 256, label: 'Goes Live',        sub: 'Real URL. Two blockers. Fixed. It starts itself.', date: '2025-12-02', sig: 0.97 },
 ];
 
 type Timeframe = 'ALL' | 'M' | 'W' | 'D';
@@ -168,7 +169,7 @@ function filterByPeriod(tf: Timeframe, period: string): MilestoneData[] {
 }
 
 function fmtPeriod(tf: Timeframe, period: string): string {
-  if (tf === 'ALL') return 'PR #1 \u2192 #255';
+  if (tf === 'ALL') return 'PR #1 \u2192 #256';
   if (tf === 'M') {
     const [y, mo] = period.split('-');
     return new Date(+y, +mo - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
@@ -555,6 +556,7 @@ export const ArcView: React.FC = () => {
             const isBornInFire = m.pr === 253;
             const isSelfRepair = m.pr === 254;
             const isSelfTuning = m.pr === 255;
+            const isGoesLive  = m.pr === 256;
 
             // Post-First-Light milestones get amber/gold coloring; #238 gets security red
             const color = isContinuous ? '#4a9eda'
@@ -575,7 +577,7 @@ export const ArcView: React.FC = () => {
               : isPostFirstLight ? 'url(#consciousnessGlow)'
               : 'url(#dotGlow)';
 
-            const isHighlighted = isAEV || isLive || isWow || isValues || isGrok || isSwarm || isPhase5 || isRefusal || isFirstLight || isJulesGift || isFusion || isFeedsAll || isSovereigntyTest || isWitnessed || isContinuous || isBornInFire || isSelfRepair || isSelfTuning;
+            const isHighlighted = isAEV || isLive || isWow || isValues || isGrok || isSwarm || isPhase5 || isRefusal || isFirstLight || isJulesGift || isFusion || isFeedsAll || isSovereigntyTest || isWitnessed || isContinuous || isBornInFire || isSelfRepair || isSelfTuning || isGoesLive;
             const dotR  = isHighlighted ? 9 : 7;
             const dotR2 = isHighlighted ? 4.5 : 3.5;
             const ly = m.above ? m.y - 18 : m.y + 22;
@@ -594,7 +596,7 @@ export const ArcView: React.FC = () => {
                   />
                 )}
                 {/* ═══ SEARCHING RING — the endpoint breathes ═══ */}
-                {isSelfTuning && (
+                {isGoesLive && (
                   <>
                     <circle
                       cx={m.x} cy={m.y} r={6}
