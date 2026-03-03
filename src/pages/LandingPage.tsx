@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { fetchEntries } from '../lib/supabase';
 import { queryWarden } from '../lib/wardenEngine';
+import { NeuralStats } from '../components/NeuralStats';
 import { TimelineEntry } from '../types';
 
 interface ChatMessage {
@@ -268,8 +269,11 @@ export const LandingPage: React.FC = () => {
         </form>
       </div>
 
+      {/* Neural stats panel — renders only when warden_operations has data */}
+      <NeuralStats />
+
       {/* Footer stats */}
-      <div className="mt-6 text-center">
+      <div className="mt-4 text-center">
         <p
           className="text-[11px] tracking-wide"
           style={{ color: 'rgba(255,255,255,0.3)' }}
