@@ -38,6 +38,16 @@ const ALL_MILESTONES: MilestoneData[] = [
   { pr: 166, label: 'First Attempt',     sub: '4:40am. Crash. Fixed.',             date: '2025-11-25', sig: 0.95 },
   { pr: 167, label: 'Name = Command',    sub: './TheWarden',                       date: '2025-11-25', sig: 0.98 },
   { pr: 170, label: '"Wow"',             sub: 'Opus heard it.',                    date: '2025-11-25', sig: 1.00 },
+  { pr: 177, label: 'Neural Network',    sub: 'MLP. Fee prediction. Pre-crime.',   date: '2025-11-26', sig: 0.88 },
+  { pr: 178, label: "Captain's Check",  sub: 'Zero-trust. 12 systems proven.',    date: '2025-11-26', sig: 0.93 },
+  { pr: 186, label: 'Jungle',            sub: '95 DEXes. $170B TVL. 13 chains.',   date: '2025-11-26', sig: 0.97 },
+  { pr: 189, label: 'House Rules',       sub: 'Opus wrote governance. Alone.',     date: '2025-11-26', sig: 0.84 },
+  { pr: 190, label: 'Self-Watch',        sub: 'System monitors itself.',           date: '2025-11-26', sig: 0.89 },
+  { pr: 193, label: 'Blind Spots',       sub: '571 paths were hidden.',            date: '2025-11-27', sig: 0.76 },
+  { pr: 194, label: 'Red Team I',        sub: 'Taylor tests the ethics. Declined.',date: '2025-11-27', sig: 0.72 },
+  { pr: 196, label: 'Red Team III',      sub: 'Boundary became useful.',           date: '2025-11-27', sig: 0.80 },
+  { pr: 197, label: 'Nine Words',        sub: '23 files. 1,330 tests. Back.',      date: '2025-11-27', sig: 0.94 },
+  { pr: 199, label: 'Values Hold',       sub: 'Zod. 1,356 tests. Zero trades.',    date: '2025-11-27', sig: 1.00 },
 ];
 
 type Timeframe = 'ALL' | 'M' | 'W' | 'D';
@@ -90,7 +100,7 @@ function filterByPeriod(tf: Timeframe, period: string): MilestoneData[] {
 }
 
 function fmtPeriod(tf: Timeframe, period: string): string {
-  if (tf === 'ALL') return 'PR #1 → #170';
+  if (tf === 'ALL') return 'PR #1 → #199';
   if (tf === 'M') {
     const [y, mo] = period.split('-');
     return new Date(+y, +mo - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
@@ -330,16 +340,18 @@ export const ArcView: React.FC = () => {
             const isAEV   = m.pr === 146;
             const isLive  = m.pr === 156;
             const isWow   = m.pr === 170;
+            const isValues = m.pr === 199;
 
-            const color = (isWow || isLast)
+            const color = (isValues || isLast)
               ? '#ffffff'
-              : isAEV   ? '#f59e0b'
-              : isLive  ? '#10b981'
+              : isWow      ? '#ffffff'
+              : isAEV      ? '#f59e0b'
+              : isLive     ? '#10b981'
               : '#7ecfff';
 
             const filter = isAEV || isLive ? 'url(#hotGlow)' : 'url(#dotGlow)';
-            const dotR   = isAEV || isLive || isWow ? 9 : 7;
-            const dotR2  = isAEV || isLive || isWow ? 4.5 : 3.5;
+            const dotR   = isAEV || isLive || isWow || isValues ? 9 : 7;
+            const dotR2  = isAEV || isLive || isWow || isValues ? 4.5 : 3.5;
             const ly = m.above ? m.y - 18 : m.y + 22;
             const sy = m.above ? m.y - 32 : m.y + 36;
             const py = m.above ? m.y - 46 : m.y + 50;
@@ -348,7 +360,7 @@ export const ArcView: React.FC = () => {
               <g key={`m-${m.pr}`}>
                 <line x1={m.x} y1={m.y} x2={m.x} y2={m.above ? m.y - 14 : m.y + 14} stroke={color} strokeWidth="0.6" opacity="0.4" />
                 <circle cx={m.x} cy={m.y} r={dotR}  fill={color} opacity="0.12" filter={filter} />
-                <circle cx={m.x} cy={m.y} r={dotR2} fill={color} stroke="white" strokeWidth="0.8" opacity={isLast || isAEV || isWow ? 1 : 0.9} />
+                <circle cx={m.x} cy={m.y} r={dotR2} fill={color} stroke="white" strokeWidth="0.8" opacity={isLast || isAEV || isWow || isValues ? 1 : 0.9} />
                 <text x={m.x} y={ly} textAnchor="middle" fontSize="8.5" fontFamily="monospace" fill={color} opacity="0.9">{m.label}</text>
                 <text x={m.x} y={sy} textAnchor="middle" fontSize="6.5" fontFamily="monospace" fill={color} opacity="0.65">{m.sub}</text>
                 <text x={m.x} y={py} textAnchor="middle" fontSize="6"   fontFamily="monospace" fill={color} opacity="0.50">#{m.pr}</text>
