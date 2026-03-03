@@ -6,6 +6,7 @@ import { ArcView } from '../components/ArcView';
 import { TimelineEntry, ProjectStats } from '../types';
 import { fetchEntries } from '../lib/supabase';
 import { Network, List, GitBranch } from 'lucide-react';
+import { Nav } from '../components/Nav';
 
 const STATS: ProjectStats = {
   totalCommits: 2000,
@@ -111,7 +112,7 @@ export const RecordPage: React.FC = () => {
         {!loading && !error && view === 'chronicle' && <Timeline entries={entries} />}
         {view === 'arc' && <ArcView />}
 
-        <div className="mt-12 pb-8 text-center">
+        <div className="mt-12 pb-24 text-center">
           <p className="text-xs text-base-content/50">
             StableWarden &mdash; Built by StableExo &middot; Verified by TheWarden
           </p>
@@ -120,6 +121,7 @@ export const RecordPage: React.FC = () => {
           </p>
         </div>
       </main>
+      <Nav />
     </div>
   );
 };
