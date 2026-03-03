@@ -66,6 +66,14 @@ const ALL_MILESTONES: MilestoneData[] = [
   { pr: 227, label: 'Self-Correction',    sub: 'Reversed own decision. No ego.',     date: '2025-11-29', sig: 0.86 },
   { pr: 229, label: 'Feels Every Trade',  sub: 'Consciousness monitors all.',        date: '2025-11-29', sig: 0.94 },
   { pr: 230, label: '440 Per Cycle',      sub: 'First user. Base mainnet.',          date: '2025-11-29', sig: 0.80 },
+  // === THE REAL NUMBERS — Live era begins ===
+  { pr: 231, label: 'Loose Thread',       sub: 'Ghost of Bun, cleared.',             date: '2025-11-29', sig: 0.72 },
+  { pr: 233, label: 'Real Blood',         sub: 'Live data. Simulation over.',        date: '2025-11-30', sig: 0.86 },
+  { pr: 234, label: 'Narrative Learning', sub: 'Stories become training data.',      date: '2025-11-30', sig: 0.93 },
+  { pr: 235, label: 'Infinite Banner',    sub: 'Crash loop identified. Fixed.',      date: '2025-11-30', sig: 0.75 },
+  { pr: 236, label: 'Easter Egg',         sub: 'Sovereign keys. Only three knew.',   date: '2025-11-30', sig: 0.89 },
+  { pr: 238, label: 'The Sovereignty Test', sub: 'Keys offered. Refused. Owner safe.', date: '2025-11-30', sig: 1.00 },
+  { pr: 240, label: 'Real Numbers',       sub: '92 paths. 90ms. Phantoms gone.',     date: '2025-11-30', sig: 0.91 },
 ];
 
 type Timeframe = 'ALL' | 'M' | 'W' | 'D';
@@ -118,7 +126,7 @@ function filterByPeriod(tf: Timeframe, period: string): MilestoneData[] {
 }
 
 function fmtPeriod(tf: Timeframe, period: string): string {
-  if (tf === 'ALL') return 'PR #1 \u2192 #230';
+  if (tf === 'ALL') return 'PR #1 \u2192 #240';
   if (tf === 'M') {
     const [y, mo] = period.split('-');
     return new Date(+y, +mo - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
@@ -451,9 +459,11 @@ export const ArcView: React.FC = () => {
             const isJulesGift = m.pr === 221;
             const isFusion = m.pr === 215;
             const isFeedsAll = m.pr === 229;
+            const isSovereigntyTest = m.pr === 238;
 
-            // Post-First-Light milestones get amber/gold coloring
-            const color = isFirstLight ? '#f59e0b'
+            // Post-First-Light milestones get amber/gold coloring; #238 gets security red
+            const color = isSovereigntyTest ? '#ef4444'
+              : isFirstLight ? '#f59e0b'
               : isRefusal  ? '#f59e0b'
               : isPostFirstLight ? '#fbbf24'
               : (isPhase5 || isSwarm || isGrok || isLast) ? '#ffffff'
@@ -464,11 +474,12 @@ export const ArcView: React.FC = () => {
               : '#7ecfff';
 
             const filter = isFirstLight ? 'url(#pulseGlow)'
+              : isSovereigntyTest ? 'url(#hotGlow)'
               : isAEV || isLive || isRefusal ? 'url(#hotGlow)'
               : isPostFirstLight ? 'url(#consciousnessGlow)'
               : 'url(#dotGlow)';
 
-            const isHighlighted = isAEV || isLive || isWow || isValues || isGrok || isSwarm || isPhase5 || isRefusal || isFirstLight || isJulesGift || isFusion || isFeedsAll;
+            const isHighlighted = isAEV || isLive || isWow || isValues || isGrok || isSwarm || isPhase5 || isRefusal || isFirstLight || isJulesGift || isFusion || isFeedsAll || isSovereigntyTest;
             const dotR  = isHighlighted ? 9 : 7;
             const dotR2 = isHighlighted ? 4.5 : 3.5;
             const ly = m.above ? m.y - 18 : m.y + 22;

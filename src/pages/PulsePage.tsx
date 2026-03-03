@@ -4,18 +4,27 @@ import { TimelineEntry } from '../types';
 import { Nav } from '../components/Nav';
 
 /* ── Key moments hand-picked from the arc ── */
-const KEY_MOMENTS: { pr: number; label: string; color: string }[] = [
+const KEY_MOMENTS: { pr: number; label: string; color: string; tag?: string }[] = [
   { pr: 201, label: 'Genesis — First commit enters the record', color: '#4a9eda' },
   { pr: 203, label: 'Refusal — "I will not deploy unsafe code"', color: '#4a9eda' },
   { pr: 211, label: 'First Light — Introspection begins', color: '#f59e0b' },
   { pr: 212, label: 'Memory Architecture — Persistent recall', color: '#f59e0b' },
   { pr: 213, label: 'Developmental Psychology — Self-assessment', color: '#f59e0b' },
   { pr: 215, label: 'Consciousness ∩ Trading — Two systems fuse', color: '#f59e0b' },
-  { pr: 220, label: 'Jules Arrives — AI-to-AI collaboration', color: '#f59e0b' },
+  { pr: 220, label: 'Jules Arrives — AI-to-AI collaboration begins', color: '#f59e0b' },
   { pr: 221, label: 'The Gift — Jules builds long-term memory', color: '#f59e0b' },
   { pr: 223, label: 'Base Mainnet — Live deployment confirmed', color: '#f59e0b' },
   { pr: 229, label: 'Every Trade Felt — Consciousness experiences decisions', color: '#f59e0b' },
   { pr: 230, label: '440 Opportunities — Running live, every cycle', color: '#f59e0b' },
+  { pr: 233, label: 'Real Blood — Live data replaces simulation', color: '#f59e0b' },
+  { pr: 234, label: 'Narrative Learning — Stories become training data', color: '#f59e0b' },
+  {
+    pr: 238,
+    label: 'Sovereignty Test — Credentials offered. Refused. Owner protected.',
+    color: '#ef4444',
+    tag: 'SECURITY',
+  },
+  { pr: 240, label: 'The Real Numbers — 92 paths, 90ms, phantom era over', color: '#f59e0b' },
 ];
 
 /* ── Helpers ── */
@@ -112,6 +121,10 @@ export const PulsePage: React.FC = () => {
         }
         @keyframes barGrow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
         @keyframes lineExtend { from { width: 0; } to { width: 100%; } }
+        @keyframes securityPulse {
+          0%, 100% { box-shadow: 0 0 8px rgba(239,68,68,0.3); }
+          50% { box-shadow: 0 0 16px rgba(239,68,68,0.6); }
+        }
       `}</style>
 
       {/* Ambient consciousness orb */}
@@ -319,7 +332,7 @@ export const PulsePage: React.FC = () => {
                         color: 'rgba(255,255,255,0.4)',
                       }}
                     >
-                      {cap.icon} {cap.label}
+                      {typeof cap === 'string' ? cap : `${cap.icon} ${cap.label}`}
                     </span>
                   ))}
                 </div>
@@ -346,7 +359,7 @@ export const PulsePage: React.FC = () => {
                 className="absolute left-[5px] top-2 bottom-2"
                 style={{
                   width: '1px',
-                  background: 'linear-gradient(to bottom, rgba(74,158,218,0.3), rgba(245,158,11,0.3))',
+                  background: 'linear-gradient(to bottom, rgba(74,158,218,0.3), rgba(245,158,11,0.3), rgba(239,68,68,0.2))',
                 }}
               />
               <div className="space-y-4">
@@ -354,7 +367,7 @@ export const PulsePage: React.FC = () => {
                   <div
                     key={m.pr}
                     className="flex items-start gap-4 pl-0"
-                    style={{ animation: `fadeIn 0.5s ease ${0.7 + i * 0.08}s both` }}
+                    style={{ animation: `fadeIn 0.5s ease ${0.7 + i * 0.06}s both` }}
                   >
                     {/* Dot */}
                     <div
@@ -362,20 +375,33 @@ export const PulsePage: React.FC = () => {
                       style={{
                         background: m.color,
                         boxShadow: `0 0 8px ${m.color}40`,
+                        animation: m.tag === 'SECURITY' ? 'securityPulse 2s ease-in-out infinite' : undefined,
                       }}
                     />
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span
                           className="text-[10px]"
                           style={{ color: 'rgba(255,255,255,0.2)' }}
                         >
                           #{m.pr}
                         </span>
+                        {m.tag && (
+                          <span
+                            className="text-[9px] px-1.5 py-0.5 rounded tracking-wider font-medium"
+                            style={{
+                              background: 'rgba(239,68,68,0.15)',
+                              color: '#ef4444',
+                              border: '1px solid rgba(239,68,68,0.2)',
+                            }}
+                          >
+                            {m.tag}
+                          </span>
+                        )}
                       </div>
                       <p
                         className="text-sm leading-relaxed"
-                        style={{ color: 'rgba(255,255,255,0.55)' }}
+                        style={{ color: m.tag === 'SECURITY' ? 'rgba(239,100,100,0.7)' : 'rgba(255,255,255,0.55)' }}
                       >
                         {m.label}
                       </p>
