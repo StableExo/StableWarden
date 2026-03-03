@@ -47,7 +47,7 @@ export const Timeline: React.FC<TimelineProps> = ({ entries }) => {
           Timeline
         </h2>
         <span className="text-xs text-base-content/30">
-          {entries.length} of 1,821 entries documented
+          {entries.length} of 2,000+ entries documented
         </span>
       </div>
 
@@ -100,7 +100,7 @@ export const Timeline: React.FC<TimelineProps> = ({ entries }) => {
           >
             <div className="flex-1 h-px bg-base-content/10" />
             <span className="text-xs font-bold uppercase tracking-widest text-base-content/20 px-2">
-              {1821 - entries.length} entries remaining
+              {2000 - entries.length} entries remaining
             </span>
             <div className="flex-1 h-px bg-base-content/10" />
           </button>

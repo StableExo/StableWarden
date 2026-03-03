@@ -8,7 +8,7 @@ import { fetchEntries } from '../lib/supabase';
 import { Network, List, GitBranch } from 'lucide-react';
 
 const STATS: ProjectStats = {
-  totalCommits: 1821,
+  totalCommits: 2000,
   totalBranches: 524,
   firstCommitDate: 'October 29, 2025',
   latestActivity: 'March 2, 2026',

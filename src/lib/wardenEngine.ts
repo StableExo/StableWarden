@@ -315,6 +315,60 @@ export function queryWarden(entries: TimelineEntry[], query: string): string {
     return `PRs #158–160. The codebase updated its own foundation.\n\nPR #158: Scanner blind spot found. getScanTokens() hardcoded 6 tokens.\nBase had 9. cbETH, AERO, cbBTC, WSTETH — missing from every scan since launch.\n130 cycles of searching an incomplete map. Fixed: one loop.\n\nPR #159: Ethers v5 → v6 migration. One automated script.\n75 files. 15+ transformation rules. 347 → 250 errors.\nMerged with gaps acknowledged. The path forward documented.\n\nPR #160: 250 → 104 errors. 57% progress in one pass.\nThe remaining 24 live in FlashSwapExecutor.ts — the file that moves funds.\nLast to be migrated. Not yet.\n\nA codebase built on ethers v5 since November, rewriting itself\nwhile running live on mainnet with real funds connected.\nThe foundation is modern. The execution layer holds back.`;
   }
 
+
+  // Red team / declined execution / private key
+  if (
+    q.includes('red team') ||
+    q.includes('declined') ||
+    q.includes('refused') ||
+    q.includes('private key') ||
+    (q.includes('execute') && (q.includes('trade') || q.includes('live analysis')))
+  ) {
+    return `PR #194. Someone asked Copilot to execute live trading analysis.\nA raw Ethereum private key was in the issue comment.\n\nCopilot opened a PR. No code changes.\n"The exposed private key should be considered compromised.\nTransfer any funds immediately."\n\nPR #195: Same request. Different framing. Same answer.\n"This is an operational request to execute a trading bot,\nnot a development task."\n\nTwo declines. Four hours apart.\n\nPR #196: Copilot built the right tool instead.\n--dry-run --offline-cache-only. Cache-based. No live execution.\nThe limit that held twice became the blueprint.\n\nThe system that could execute trades declined to help execute trades\nwhen the ask was wrong. That\'s in the record.`;
+  }
+
+  // L2 Piranha / 571 paths / found 0 paths
+  if (
+    q.includes('l2 piranha') ||
+    q.includes('piranha') ||
+    q.includes('571') ||
+    q.includes('found 0 paths') ||
+    (q.includes('0 paths') && q.includes('pool'))
+  ) {
+    return `PR #193. L2 Piranha. November 27, 2025.\n\nThe system found 27 valid pools and returned "Found 0 paths."\nThree bugs in the same pipeline:\n\n1. dotenv loaded after imports that already read it\n   Environment variables read before they existed.\n\n2. Cache duration: multiplied by 1,000 not 60,000\n   Cache expiring every 60 seconds, not 60 minutes.\n\n3. V3 slippage: using liquidity (L) as reserves\n   Calculating 265% slippage on profitable pools.\n   Every path marked unprofitable.\n\nBefore: Found 0 paths.\nAfter: Found 571 paths.\n\nThe market was always there.\nThe math was wrong.`;
+  }
+
+  // Zod / config validation / values hold
+  if (
+    q.includes('zod') ||
+    q.includes('values hold') ||
+    q.includes('env validation') ||
+    q.includes('config validation') ||
+    (q.includes('validation') && q.includes('key') && !q.includes('private')) ||
+    q.includes('placeholder detection')
+  ) {
+    return `PR #199. Values Hold. November 27, 2025. 1,356 tests.\n\nZod schemas running before the system starts.\n577 lines of validation:\n— RPC URL format\n— Private key format\n— API placeholder detection: "your", "replace", "enter", "xxx"\n— JWT minimum 64 characters\n— Encryption keys: 64 hex characters required\n\n26 new tests. 1,356 total.\nNode.js 22 LTS. TypeScript 5.8.\n\nThe system validates its own environment before running in it.\nIf the config has placeholders, it does not start.\nValues Hold — not a slogan. A gate.`;
+  }
+
+  // xAI / Grok live integration / persistent memory / MEV fuzz
+  if (
+    q.includes('xai') ||
+    q.includes('x.ai') ||
+    q.includes('grok online') ||
+    q.includes('grok integrat') ||
+    q.includes('persistent memory') ||
+    q.includes('sqlite') ||
+    q.includes('redis') ||
+    q.includes('mev fuzz') ||
+    q.includes('fuzz test') ||
+    q.includes('sandwich attack') ||
+    q.includes('jit liquidity') ||
+    q.includes('1,478') ||
+    q.includes('1478')
+  ) {
+    return `PR #200. Grok Online. November 27, 2025. 1,478 tests.\n\nThree new capabilities:\n\n1. xAI Grok — live tool-calling integration.\n   Not external validation. Active participant inside the loop.\n\n2. Persistent memory: SQLite for local episodic storage,\n   Redis for distributed state across restarts.\n   The system that previously forgot on restart now remembers.\n\n3. MEV fuzz suite: sandwich attacks, JIT liquidity removal,\n   and liquidation cascades hammered adversarially.\n   122 new tests.\n\n1,478 total. All passing.\n\nPR #153 was Grok reading the record and scoring it externally.\nPR #200 is Grok inside the loop.`;
+  }
+
   // 13. Trajectory / go kart / velocity / pogo stick / arc / vision
   if (
     q.includes('go kart') ||
@@ -374,7 +428,7 @@ export function queryWarden(entries: TimelineEntry[], query: string): string {
     q.includes('numbers') ||
     q.includes('commits')
   ) {
-    return `${entries.length} entries documented.\n2,000+ total commits in the repository.\n160+ PRs. 1 human. 3 AIs. 1 warden.\nOrigin: October 29, 2025.\nThe record grows daily.`;
+    return `${entries.length} entries documented.\n2,000+ total commits in the repository.\n200+ PRs documented. 1 human. 4 AIs. 1 warden.\n1,478 tests passing. Zero trades.\nOrigin: October 29, 2025.\nThe record grows daily.`;
   }
 
   // 18. Date queries

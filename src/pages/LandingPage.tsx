@@ -84,7 +84,7 @@ export const LandingPage: React.FC = () => {
     const runBoot = async () => {
       const resolvedLines = BOOT_LINES.map((line) =>
         line
-          .replace('{commits}', '1,821+')
+          .replace('{commits}', '2,000+')
           .replace('{entries}', String(entries.length))
       );
 
@@ -278,7 +278,7 @@ export const LandingPage: React.FC = () => {
           className="text-[11px] tracking-wide"
           style={{ color: 'rgba(255,255,255,0.3)' }}
         >
-          {entries.length} entries · 1,821+ commits · origin: oct 29, 2025
+          {entries.length} entries · 2,000+ commits · origin: oct 29, 2025
         </p>
         <a
           href="#/record"
