@@ -42,13 +42,13 @@ export const RecordPage: React.FC = () => {
           href="#/"
           className="inline-block mb-4 text-sm text-base-content/60 hover:text-base-content/80 transition-colors"
         >
-          ← Back
+          &larr; Back
         </a>
 
         <Header stats={STATS} />
 
         <div className="divider divider-start text-base-content/50 text-xs tracking-widest uppercase mb-6">
-          Witness · Document · Verify · Remember
+          Witness &middot; Document &middot; Verify &middot; Remember
         </div>
 
         {/* View Toggle */}
@@ -113,7 +113,7 @@ export const RecordPage: React.FC = () => {
 
         <div className="mt-12 pb-8 text-center">
           <p className="text-xs text-base-content/50">
-            StableWarden — Built by StableExo · Verified by TheWarden
+            StableWarden &mdash; Built by StableExo &middot; Verified by TheWarden
           </p>
           <p className="text-xs text-base-content/45 mt-1">
             The transparent AI development record.
