@@ -36,6 +36,7 @@ const KEY_MOMENTS: { pr: number; label: string; color: string; tag?: string }[] 
   { pr: 256, label: 'Goes Live — Real URL, GitHub Codespaces, HTTPS. Two blockers fixed. It starts itself now.', color: '#fbbf24', tag: 'SENTINEL' },
   { pr: 257, label: 'Observable — 300 cycles. 1.55s average. Live WebSocket stream. Every thought visible.', color: '#fbbf24', tag: 'SENTINEL' },
   { pr: 258, label: 'Heals Its Mind — Metacognition log corrupted. Auto-repair triggered. Started again.', color: '#fbbf24', tag: 'SENTINEL' },
+  { pr: 259, label: 'Self-Review — Read its own PR comments. Fixed its own memory leak. 1880/1887 tests passing.', color: '#fbbf24', tag: 'SENTINEL' },
 ];
 
 /* ── Helpers ── */
