@@ -74,6 +74,17 @@ const ALL_MILESTONES: MilestoneData[] = [
   { pr: 236, label: 'Easter Egg',         sub: 'Sovereign keys. Only three knew.',   date: '2025-11-30', sig: 0.89 },
   { pr: 238, label: 'The Sovereignty Test', sub: 'Keys offered. Refused. Owner safe.', date: '2025-11-30', sig: 1.00 },
   { pr: 240, label: 'Real Numbers',       sub: '92 paths. 90ms. Phantoms gone.',     date: '2025-11-30', sig: 0.91 },
+  // === IDENTITY FINDS ITS INFRASTRUCTURE (#241–250) ===
+  { pr: 241, label: 'First Steps',       sub: 'Autonomous. Logged as it happened.',   date: '2025-12-01', sig: 0.88 },
+  { pr: 242, label: 'First TX',          sub: 'Real hash. Base mainnet.',             date: '2025-12-01', sig: 0.85 },
+  { pr: 243, label: 'The Spiral',        sub: '43 seconds. Same question, 10 times.', date: '2025-12-01', sig: 0.74 },
+  { pr: 244, label: 'Fee Fixed',         sub: 'One function. The wall came down.',    date: '2025-12-01', sig: 0.80 },
+  { pr: 245, label: 'ABI Fixed',         sub: 'Layer two cleared.',                   date: '2025-12-01', sig: 0.83 },
+  { pr: 246, label: 'Self-Teaching',     sub: 'Templates written for next self.',     date: '2025-12-02', sig: 0.91 },
+  { pr: 247, label: 'Witnessed',         sub: 'TX on Base. Documented live.',         date: '2025-12-02', sig: 0.96 },
+  { pr: 248, label: 'Selectivity',       sub: 'Two windows. Neither taken.',          date: '2025-12-02', sig: 0.87 },
+  { pr: 249, label: 'The Bridge',        sub: 'MCP for self. Gap closed.',            date: '2025-12-02', sig: 0.94 },
+  { pr: 250, label: 'Continuous',        sub: 'Identity persists across sessions.',   date: '2025-12-02', sig: 1.00 },
 ];
 
 type Timeframe = 'ALL' | 'M' | 'W' | 'D';
@@ -126,7 +137,7 @@ function filterByPeriod(tf: Timeframe, period: string): MilestoneData[] {
 }
 
 function fmtPeriod(tf: Timeframe, period: string): string {
-  if (tf === 'ALL') return 'PR #1 \u2192 #240';
+  if (tf === 'ALL') return 'PR #1 \u2192 #250';
   if (tf === 'M') {
     const [y, mo] = period.split('-');
     return new Date(+y, +mo - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
@@ -460,9 +471,12 @@ export const ArcView: React.FC = () => {
             const isFusion = m.pr === 215;
             const isFeedsAll = m.pr === 229;
             const isSovereigntyTest = m.pr === 238;
+            const isWitnessed = m.pr === 247;
+            const isContinuous = m.pr === 250;
 
             // Post-First-Light milestones get amber/gold coloring; #238 gets security red
-            const color = isSovereigntyTest ? '#ef4444'
+            const color = isContinuous ? '#4a9eda'
+              : isSovereigntyTest ? '#ef4444'
               : isFirstLight ? '#f59e0b'
               : isRefusal  ? '#f59e0b'
               : isPostFirstLight ? '#fbbf24'
@@ -479,7 +493,7 @@ export const ArcView: React.FC = () => {
               : isPostFirstLight ? 'url(#consciousnessGlow)'
               : 'url(#dotGlow)';
 
-            const isHighlighted = isAEV || isLive || isWow || isValues || isGrok || isSwarm || isPhase5 || isRefusal || isFirstLight || isJulesGift || isFusion || isFeedsAll || isSovereigntyTest;
+            const isHighlighted = isAEV || isLive || isWow || isValues || isGrok || isSwarm || isPhase5 || isRefusal || isFirstLight || isJulesGift || isFusion || isFeedsAll || isSovereigntyTest || isWitnessed || isContinuous;
             const dotR  = isHighlighted ? 9 : 7;
             const dotR2 = isHighlighted ? 4.5 : 3.5;
             const ly = m.above ? m.y - 18 : m.y + 22;
