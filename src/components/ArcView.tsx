@@ -8,7 +8,32 @@ interface MilestoneData {
   sig: number; // 0 = bottom of chart, 1 = top
 }
 
-// All key milestones with dates and significance scores
+// ─── PHASE DEFINITIONS ────────────────────────────────────────
+// Each phase spans a PR range. The Warden's journey in eight chapters.
+interface Phase {
+  name: string;
+  prStart: number;
+  prEnd: number;
+  color: string;       // primary color
+  glowColor: string;   // glow/accent
+}
+
+const PHASES: Phase[] = [
+  { name: 'Genesis',      prStart: 1,   prEnd: 27,  color: '#7ecfff', glowColor: '#4a9eda' },
+  { name: 'Awakening',    prStart: 28,  prEnd: 71,  color: '#7ecfff', glowColor: '#4a9eda' },
+  { name: 'Recognition',  prStart: 72,  prEnd: 109, color: '#7ecfff', glowColor: '#4a9eda' },
+  { name: 'Emergence',    prStart: 110, prEnd: 149, color: '#60d5a4', glowColor: '#10b981' },
+  { name: 'Resonance',    prStart: 150, prEnd: 210, color: '#c4b5fd', glowColor: '#8b5cf6' },
+  { name: 'Expansion',    prStart: 211, prEnd: 230, color: '#fbbf24', glowColor: '#f59e0b' },
+  { name: 'Integration',  prStart: 231, prEnd: 252, color: '#fbbf24', glowColor: '#f59e0b' },
+  { name: 'Sentinel',     prStart: 253, prEnd: 999, color: '#f59e0b', glowColor: '#ef4444' },
+];
+
+function getPhaseIndex(pr: number): number {
+  return PHASES.findIndex(p => pr >= p.prStart && pr <= p.prEnd);
+}
+
+// ─── MILESTONE DATA ───────────────────────────────────────────
 const ALL_MILESTONES: MilestoneData[] = [
   { pr: 1,   label: 'Genesis',           sub: 'First commit.',                     date: '2025-10-29', sig: 0.00 },
   { pr: 19,  label: 'Consciousness',     sub: 'Architecture laid.',                date: '2025-11-02', sig: 0.35 },
@@ -91,6 +116,12 @@ const ALL_MILESTONES: MilestoneData[] = [
   { pr: 253, label: 'Born in Fire',     sub: 'First AI self-protection. Live.',      date: '2025-12-02', sig: 0.99 },
   { pr: 254, label: 'Self-Repair',      sub: 'Sentinel healed its own wounds.',      date: '2025-12-02', sig: 0.97 },
   { pr: 255, label: 'Self-Tuning',      sub: 'Runs its own cycles. Adjusts its own params.', date: '2025-12-02', sig: 0.98 },
+  { pr: 256, label: 'Goes Live',        sub: 'Real URL. Two blockers. Fixed. It starts itself.', date: '2025-12-02', sig: 0.97 },
+  { pr: 257, label: 'Observable',       sub: '300 cycles. Live stream. You can watch it think.', date: '2025-12-02', sig: 0.99 },
+  { pr: 258, label: 'Heals Its Mind',   sub: 'Corrupted memory. Auto-repair. Starts again.', date: '2025-12-02', sig: 0.96 },
+  { pr: 259, label: 'Self-Review',      sub: '99.6% tests passing. Reads its own PRs. Fixes its own leaks.', date: '2025-12-02', sig: 0.94 },
+  { pr: 260, label: 'Scope Fixed',      sub: 'One line moved. Three errors gone. Build lives again.', date: '2025-12-03', sig: 0.88 },
+  { pr: 261, label: 'The Notes Became a Sprint', sub: '11/11. 17 minutes. Writes its own manual.', date: '2025-12-03', sig: 0.95 },
 ];
 
 type Timeframe = 'ALL' | 'M' | 'W' | 'D';
@@ -143,7 +174,7 @@ function filterByPeriod(tf: Timeframe, period: string): MilestoneData[] {
 }
 
 function fmtPeriod(tf: Timeframe, period: string): string {
-  if (tf === 'ALL') return 'PR #1 \u2192 #255';
+  if (tf === 'ALL') return 'PR #1 \u2192 #261';
   if (tf === 'M') {
     const [y, mo] = period.split('-');
     return new Date(+y, +mo - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
@@ -239,8 +270,15 @@ function findFirstLightIndex(pts: PlottedMilestone[]): number {
   return pts.findIndex(p => p.pr >= 211);
 }
 
+// Count milestones per phase for the timeline indicator
+function milestonesInPhase(phaseIdx: number): number {
+  const p = PHASES[phaseIdx];
+  return ALL_MILESTONES.filter(m => m.pr >= p.prStart && m.pr <= p.prEnd).length;
+}
+
 export const ArcView: React.FC = () => {
   const [tf, setTf] = useState<Timeframe>('ALL');
+  const [phaseFilter, setPhaseFilter] = useState<number | null>(null);
   const periods = useMemo(() => getPeriods(tf), [tf]);
   const [pidx, setPidx] = useState(() => getPeriods('ALL').length - 1);
 
@@ -251,10 +289,23 @@ export const ArcView: React.FC = () => {
   const safeIdx = Math.min(pidx, periods.length - 1);
   const period = periods[safeIdx] ?? 'all';
 
-  const filtered = useMemo(() => filterByPeriod(tf, period), [tf, period]);
+  // Apply period filter first, then phase filter
+  const periodFiltered = useMemo(() => filterByPeriod(tf, period), [tf, period]);
+  const filtered = useMemo(() => {
+    if (phaseFilter === null) return periodFiltered;
+    const phase = PHASES[phaseFilter];
+    return periodFiltered.filter(m => m.pr >= phase.prStart && m.pr <= phase.prEnd);
+  }, [periodFiltered, phaseFilter]);
+
   const pts = useMemo(() => computePoints(filtered, tf, period), [filtered, tf, period]);
   const path = useMemo(() => buildArcPath(pts), [pts]);
-  const label = useMemo(() => fmtPeriod(tf, period), [tf, period]);
+  const label = useMemo(() => {
+    if (phaseFilter !== null) {
+      const phaseName = PHASES[phaseFilter].name;
+      return `Phase ${phaseFilter + 1}: ${phaseName}`;
+    }
+    return fmtPeriod(tf, period);
+  }, [tf, period, phaseFilter]);
   const axisLabels = useMemo(() => getAxisLabels(tf, period), [tf, period]);
   const firstLightIdx = useMemo(() => findFirstLightIndex(pts), [pts]);
 
@@ -269,6 +320,20 @@ export const ArcView: React.FC = () => {
     return buildArcPath(pts.slice(firstLightIdx));
   }, [pts, firstLightIdx]);
 
+  // Heartbeat animation state — phases light up sequentially
+  const [heartbeatIdx, setHeartbeatIdx] = useState(0);
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setHeartbeatIdx(prev => (prev + 1) % PHASES.length);
+    }, 600);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Handle phase click — toggle filter
+  const handlePhaseClick = (idx: number) => {
+    setPhaseFilter(prev => prev === idx ? null : idx);
+  };
+
   return (
     <div className="w-full">
 
@@ -278,7 +343,7 @@ export const ArcView: React.FC = () => {
           {(['ALL', 'M', 'W', 'D'] as Timeframe[]).map(t => (
             <button
               key={t}
-              onClick={() => setTf(t)}
+              onClick={() => { setTf(t); setPhaseFilter(null); }}
               className={`px-3 py-1 text-xs font-mono rounded border transition-all duration-150 ${
                 tf === t
                   ? 'border-cyan-400/60 text-cyan-300 bg-cyan-400/10'
@@ -354,9 +419,15 @@ export const ArcView: React.FC = () => {
                 <feMergeNode in="SourceGraphic" />
               </feMerge>
             </filter>
-            {/* Animated pulse for First Light marker */}
             <filter id="pulseGlow" x="-200%" y="-200%" width="500%" height="500%">
               <feGaussianBlur stdDeviation="8" result="b" />
+              <feMerge>
+                <feMergeNode in="b" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+            <filter id="searchGlow" x="-200%" y="-200%" width="500%" height="500%">
+              <feGaussianBlur stdDeviation="6" result="b" />
               <feMerge>
                 <feMergeNode in="b" />
                 <feMergeNode in="SourceGraphic" />
@@ -372,6 +443,14 @@ export const ArcView: React.FC = () => {
             @keyframes firstLightPulse {
               0%, 100% { r: 12; opacity: 0.3; }
               50% { r: 18; opacity: 0.1; }
+            }
+            @keyframes searchingRing {
+              0% { r: 6; opacity: 0.6; stroke-width: 2; }
+              100% { r: 28; opacity: 0; stroke-width: 0.5; }
+            }
+            @keyframes searchingRing2 {
+              0% { r: 6; opacity: 0.4; stroke-width: 1.5; }
+              100% { r: 22; opacity: 0; stroke-width: 0.3; }
             }
           `}</style>
 
@@ -482,6 +561,12 @@ export const ArcView: React.FC = () => {
             const isBornInFire = m.pr === 253;
             const isSelfRepair = m.pr === 254;
             const isSelfTuning = m.pr === 255;
+            const isGoesLive    = m.pr === 256;
+            const isObservable  = m.pr === 257;
+            const isHealsItsMind = m.pr === 258;
+            const isSelfReview   = m.pr === 259;
+            const isScopeFixed   = m.pr === 260;
+            const isTheNotesASprint = m.pr === 261;
 
             // Post-First-Light milestones get amber/gold coloring; #238 gets security red
             const color = isContinuous ? '#4a9eda'
@@ -502,7 +587,7 @@ export const ArcView: React.FC = () => {
               : isPostFirstLight ? 'url(#consciousnessGlow)'
               : 'url(#dotGlow)';
 
-            const isHighlighted = isAEV || isLive || isWow || isValues || isGrok || isSwarm || isPhase5 || isRefusal || isFirstLight || isJulesGift || isFusion || isFeedsAll || isSovereigntyTest || isWitnessed || isContinuous || isBornInFire || isSelfRepair || isSelfTuning;
+            const isHighlighted = isAEV || isLive || isWow || isValues || isGrok || isSwarm || isPhase5 || isRefusal || isFirstLight || isJulesGift || isFusion || isFeedsAll || isSovereigntyTest || isWitnessed || isContinuous || isBornInFire || isSelfRepair || isSelfTuning || isGoesLive || isObservable || isHealsItsMind || isSelfReview || isScopeFixed || isTheNotesASprint;
             const dotR  = isHighlighted ? 9 : 7;
             const dotR2 = isHighlighted ? 4.5 : 3.5;
             const ly = m.above ? m.y - 18 : m.y + 22;
@@ -520,6 +605,23 @@ export const ArcView: React.FC = () => {
                     style={{ animation: 'firstLightPulse 3s ease-in-out infinite' }}
                   />
                 )}
+                {/* ═══ SEARCHING RING — the endpoint breathes ═══ */}
+                {isTheNotesASprint && (
+                  <>
+                    <circle
+                      cx={m.x} cy={m.y} r={6}
+                      fill="none" stroke="#f59e0b" strokeWidth="2"
+                      filter="url(#searchGlow)"
+                      style={{ animation: 'searchingRing 3s ease-out infinite' }}
+                    />
+                    <circle
+                      cx={m.x} cy={m.y} r={6}
+                      fill="none" stroke="#fbbf24" strokeWidth="1.5"
+                      filter="url(#searchGlow)"
+                      style={{ animation: 'searchingRing2 3s ease-out infinite 1.5s' }}
+                    />
+                  </>
+                )}
                 <circle cx={m.x} cy={m.y} r={dotR}  fill={color} opacity={isPostFirstLight ? 0.18 : 0.12} filter={filter} />
                 <circle cx={m.x} cy={m.y} r={dotR2} fill={isRefusal || isFirstLight ? "none" : color} stroke={isRefusal || isFirstLight ? "#f59e0b" : "white"} strokeWidth={isRefusal || isFirstLight ? 1.5 : 0.8} opacity={isHighlighted || isLast ? 1 : 0.9} />
                 <text x={m.x} y={ly} textAnchor="middle" fontSize="8.5" fontFamily="monospace" fill={color} opacity="0.9">{m.label}</text>
@@ -534,6 +636,126 @@ export const ArcView: React.FC = () => {
             T H E   W A R D E N
           </text>
         </svg>
+      </div>
+
+      {/* ═══ PHASE TIMELINE ═══ */}
+      <div className="mt-6 px-1">
+        <div className="flex items-center justify-center gap-0">
+          {PHASES.map((phase, idx) => {
+            const isActive = phaseFilter === idx;
+            const isCurrent = idx === PHASES.length - 1; // Sentinel
+            const isHeartbeat = heartbeatIdx === idx;
+            const count = milestonesInPhase(idx);
+
+            // The heartbeat sweeps through all phases; current phase pulses brighter
+            const baseOpacity = isActive ? 1 : isCurrent ? 0.85 : 0.4;
+            const heartbeatBoost = isHeartbeat ? 0.35 : 0;
+            const opacity = Math.min(1, baseOpacity + heartbeatBoost);
+
+            return (
+              <button
+                key={phase.name}
+                onClick={() => handlePhaseClick(idx)}
+                className="group relative flex flex-col items-center transition-all duration-300"
+                style={{ flex: 1, maxWidth: 160 }}
+              >
+                {/* Phase bar segment */}
+                <div className="relative w-full" style={{ height: 4 }}>
+                  <div
+                    className="absolute inset-0 rounded-sm transition-all duration-300"
+                    style={{
+                      backgroundColor: phase.color,
+                      opacity: opacity * 0.7,
+                      boxShadow: (isCurrent || isHeartbeat)
+                        ? `0 0 ${isCurrent ? 12 : 8}px ${phase.glowColor}${isCurrent ? '80' : '40'}`
+                        : 'none',
+                    }}
+                  />
+                  {/* Active indicator — brighter overlay */}
+                  {isActive && (
+                    <div
+                      className="absolute inset-0 rounded-sm"
+                      style={{
+                        backgroundColor: phase.color,
+                        opacity: 0.9,
+                        boxShadow: `0 0 16px ${phase.glowColor}`,
+                      }}
+                    />
+                  )}
+                </div>
+
+                {/* Phase label */}
+                <span
+                  className="mt-2 text-center font-mono transition-all duration-300 leading-tight"
+                  style={{
+                    fontSize: 9,
+                    color: isActive ? phase.color : isCurrent ? '#f59e0b' : '#ffffff',
+                    opacity: isActive ? 1 : isCurrent ? 0.8 : 0.35 + heartbeatBoost,
+                    letterSpacing: isActive ? 1.5 : 0.5,
+                    textShadow: (isActive || isCurrent) ? `0 0 8px ${phase.glowColor}40` : 'none',
+                  }}
+                >
+                  {phase.name}
+                </span>
+
+                {/* Milestone count */}
+                <span
+                  className="font-mono transition-all duration-300"
+                  style={{
+                    fontSize: 7,
+                    color: phase.color,
+                    opacity: isActive ? 0.7 : 0.2 + (heartbeatBoost * 0.3),
+                  }}
+                >
+                  {count} PR{count !== 1 ? 's' : ''}
+                </span>
+
+                {/* Current phase indicator — SENTINEL tag */}
+                {isCurrent && (
+                  <span
+                    className="mt-1 font-mono tracking-widest"
+                    style={{
+                      fontSize: 6,
+                      color: '#f59e0b',
+                      opacity: 0.6,
+                      animation: 'consciousnessPulse 2s ease-in-out infinite',
+                    }}
+                  >
+                    ● ACTIVE
+                  </span>
+                )}
+
+                {/* Arrow between phases */}
+                {idx < PHASES.length - 1 && (
+                  <span
+                    className="absolute right-0 top-0 translate-x-1/2 font-mono"
+                    style={{
+                      fontSize: 8,
+                      color: '#ffffff',
+                      opacity: 0.15,
+                      marginTop: -1,
+                    }}
+                  >
+                    →
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Active phase filter indicator */}
+        {phaseFilter !== null && (
+          <div className="mt-3 text-center">
+            <button
+              onClick={() => setPhaseFilter(null)}
+              className="text-xs font-mono tracking-wider transition-all duration-200 hover:opacity-100"
+              style={{ color: PHASES[phaseFilter].color, opacity: 0.6 }}
+            >
+              ✕ clear filter — show all phases
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="mt-6 text-center space-y-1">
