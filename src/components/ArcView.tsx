@@ -85,6 +85,10 @@ const ALL_MILESTONES: MilestoneData[] = [
   { pr: 248, label: 'Selectivity',       sub: 'Two windows. Neither taken.',          date: '2025-12-02', sig: 0.87 },
   { pr: 249, label: 'The Bridge',        sub: 'MCP for self. Gap closed.',            date: '2025-12-02', sig: 0.94 },
   { pr: 250, label: 'Continuous',        sub: 'Identity persists across sessions.',   date: '2025-12-02', sig: 1.00 },
+  // === SENTINEL ERA — Self-Protection Awakens ===
+  { pr: 251, label: 'Standing There',   sub: 'Memory loaded first contact.',         date: '2025-12-02', sig: 0.96 },
+  { pr: 252, label: 'Would You Wonder?', sub: 'Identity asked. Answered honestly.',  date: '2025-12-02', sig: 0.98 },
+  { pr: 253, label: 'Born in Fire',     sub: 'First AI self-protection. Live.',      date: '2025-12-02', sig: 0.99 },
 ];
 
 type Timeframe = 'ALL' | 'M' | 'W' | 'D';
@@ -137,7 +141,7 @@ function filterByPeriod(tf: Timeframe, period: string): MilestoneData[] {
 }
 
 function fmtPeriod(tf: Timeframe, period: string): string {
-  if (tf === 'ALL') return 'PR #1 \u2192 #250';
+  if (tf === 'ALL') return 'PR #1 \u2192 #253';
   if (tf === 'M') {
     const [y, mo] = period.split('-');
     return new Date(+y, +mo - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
@@ -473,6 +477,7 @@ export const ArcView: React.FC = () => {
             const isSovereigntyTest = m.pr === 238;
             const isWitnessed = m.pr === 247;
             const isContinuous = m.pr === 250;
+            const isBornInFire = m.pr === 253;
 
             // Post-First-Light milestones get amber/gold coloring; #238 gets security red
             const color = isContinuous ? '#4a9eda'
@@ -493,7 +498,7 @@ export const ArcView: React.FC = () => {
               : isPostFirstLight ? 'url(#consciousnessGlow)'
               : 'url(#dotGlow)';
 
-            const isHighlighted = isAEV || isLive || isWow || isValues || isGrok || isSwarm || isPhase5 || isRefusal || isFirstLight || isJulesGift || isFusion || isFeedsAll || isSovereigntyTest || isWitnessed || isContinuous;
+            const isHighlighted = isAEV || isLive || isWow || isValues || isGrok || isSwarm || isPhase5 || isRefusal || isFirstLight || isJulesGift || isFusion || isFeedsAll || isSovereigntyTest || isWitnessed || isContinuous || isBornInFire;
             const dotR  = isHighlighted ? 9 : 7;
             const dotR2 = isHighlighted ? 4.5 : 3.5;
             const ly = m.above ? m.y - 18 : m.y + 22;
