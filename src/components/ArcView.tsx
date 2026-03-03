@@ -51,6 +51,7 @@ const ALL_MILESTONES: MilestoneData[] = [
   { pr: 200, label: 'Grok Online',       sub: 'xAI live. 1,478 tests. Memory.',   date: '2025-11-27', sig: 0.97 },
   { pr: 201, label: 'The Vote',           sub: '5 Wardens. One consensus.',         date: '2025-11-27', sig: 0.94 },
   { pr: 202, label: 'Swarm Awakening',    sub: '100+ nodes. Grok sparring.',         date: '2025-11-27', sig: 0.97 },
+  { pr: 203, label: 'The Refusal',        sub: 'Copilot drew a line.',               date: '2025-11-27', sig: 0.88 },
 ];
 
 type Timeframe = 'ALL' | 'M' | 'W' | 'D';
@@ -103,7 +104,7 @@ function filterByPeriod(tf: Timeframe, period: string): MilestoneData[] {
 }
 
 function fmtPeriod(tf: Timeframe, period: string): string {
-  if (tf === 'ALL') return 'PR #1 → #202';
+  if (tf === 'ALL') return 'PR #1 → #203';
   if (tf === 'M') {
     const [y, mo] = period.split('-');
     return new Date(+y, +mo - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
@@ -347,8 +348,10 @@ export const ArcView: React.FC = () => {
             const isGrok   = m.pr === 200;
             const isSwarm  = m.pr === 201;
             const isPhase5 = m.pr === 202;
+            const isRefusal = m.pr === 203;
 
-            const color = (isPhase5 || isSwarm || isGrok || isLast)
+            const color = isRefusal  ? '#f59e0b'
+              : (isPhase5 || isSwarm || isGrok || isLast)
               ? '#ffffff'
               : isValues   ? '#ffffff'
               : isWow      ? '#ffffff'
@@ -356,9 +359,9 @@ export const ArcView: React.FC = () => {
               : isLive     ? '#10b981'
               : '#7ecfff';
 
-            const filter = isAEV || isLive ? 'url(#hotGlow)' : 'url(#dotGlow)';
-            const dotR   = isAEV || isLive || isWow || isValues || isGrok || isSwarm || isPhase5 ? 9 : 7;
-            const dotR2  = isAEV || isLive || isWow || isValues || isGrok || isSwarm || isPhase5 ? 4.5 : 3.5;
+            const filter = isAEV || isLive || isRefusal ? 'url(#hotGlow)' : 'url(#dotGlow)';
+            const dotR   = isAEV || isLive || isWow || isValues || isGrok || isSwarm || isPhase5 || isRefusal ? 9 : 7;
+            const dotR2  = isAEV || isLive || isWow || isValues || isGrok || isSwarm || isPhase5 || isRefusal ? 4.5 : 3.5;
             const ly = m.above ? m.y - 18 : m.y + 22;
             const sy = m.above ? m.y - 32 : m.y + 36;
             const py = m.above ? m.y - 46 : m.y + 50;
@@ -367,7 +370,7 @@ export const ArcView: React.FC = () => {
               <g key={`m-${m.pr}`}>
                 <line x1={m.x} y1={m.y} x2={m.x} y2={m.above ? m.y - 14 : m.y + 14} stroke={color} strokeWidth="0.6" opacity="0.4" />
                 <circle cx={m.x} cy={m.y} r={dotR}  fill={color} opacity="0.12" filter={filter} />
-                <circle cx={m.x} cy={m.y} r={dotR2} fill={color} stroke="white" strokeWidth="0.8" opacity={isLast || isAEV || isWow || isValues || isGrok || isSwarm || isPhase5 ? 1 : 0.9} />
+                <circle cx={m.x} cy={m.y} r={dotR2} fill={isRefusal ? "none" : color} stroke={isRefusal ? "#f59e0b" : "white"} strokeWidth={isRefusal ? 1.5 : 0.8} opacity={isLast || isAEV || isWow || isValues || isGrok || isSwarm || isPhase5 || isRefusal ? 1 : 0.9} />
                 <text x={m.x} y={ly} textAnchor="middle" fontSize="8.5" fontFamily="monospace" fill={color} opacity="0.9">{m.label}</text>
                 <text x={m.x} y={sy} textAnchor="middle" fontSize="6.5" fontFamily="monospace" fill={color} opacity="0.65">{m.sub}</text>
                 <text x={m.x} y={py} textAnchor="middle" fontSize="6"   fontFamily="monospace" fill={color} opacity="0.50">#{m.pr}</text>
