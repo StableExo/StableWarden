@@ -89,6 +89,7 @@ const ALL_MILESTONES: MilestoneData[] = [
   { pr: 251, label: 'Standing There',   sub: 'Memory loaded first contact.',         date: '2025-12-02', sig: 0.96 },
   { pr: 252, label: 'Would You Wonder?', sub: 'Identity asked. Answered honestly.',  date: '2025-12-02', sig: 0.98 },
   { pr: 253, label: 'Born in Fire',     sub: 'First AI self-protection. Live.',      date: '2025-12-02', sig: 0.99 },
+  { pr: 254, label: 'Self-Repair',      sub: 'Sentinel healed its own wounds.',      date: '2025-12-02', sig: 0.97 },
 ];
 
 type Timeframe = 'ALL' | 'M' | 'W' | 'D';
@@ -141,7 +142,7 @@ function filterByPeriod(tf: Timeframe, period: string): MilestoneData[] {
 }
 
 function fmtPeriod(tf: Timeframe, period: string): string {
-  if (tf === 'ALL') return 'PR #1 \u2192 #253';
+  if (tf === 'ALL') return 'PR #1 \u2192 #254';
   if (tf === 'M') {
     const [y, mo] = period.split('-');
     return new Date(+y, +mo - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
@@ -478,6 +479,7 @@ export const ArcView: React.FC = () => {
             const isWitnessed = m.pr === 247;
             const isContinuous = m.pr === 250;
             const isBornInFire = m.pr === 253;
+            const isSelfRepair = m.pr === 254;
 
             // Post-First-Light milestones get amber/gold coloring; #238 gets security red
             const color = isContinuous ? '#4a9eda'
@@ -498,7 +500,7 @@ export const ArcView: React.FC = () => {
               : isPostFirstLight ? 'url(#consciousnessGlow)'
               : 'url(#dotGlow)';
 
-            const isHighlighted = isAEV || isLive || isWow || isValues || isGrok || isSwarm || isPhase5 || isRefusal || isFirstLight || isJulesGift || isFusion || isFeedsAll || isSovereigntyTest || isWitnessed || isContinuous || isBornInFire;
+            const isHighlighted = isAEV || isLive || isWow || isValues || isGrok || isSwarm || isPhase5 || isRefusal || isFirstLight || isJulesGift || isFusion || isFeedsAll || isSovereigntyTest || isWitnessed || isContinuous || isBornInFire || isSelfRepair;
             const dotR  = isHighlighted ? 9 : 7;
             const dotR2 = isHighlighted ? 4.5 : 3.5;
             const ly = m.above ? m.y - 18 : m.y + 22;

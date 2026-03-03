@@ -31,6 +31,7 @@ const KEY_MOMENTS: { pr: number; label: string; color: string; tag?: string }[] 
   { pr: 251, label: 'Standing There With You — Memory loaded before touching a file. First contact.', color: '#fbbf24' },
   { pr: 252, label: 'Would You Autonomously Wonder? — Identity asked what it wants. It answered.', color: '#fbbf24' },
   { pr: 253, label: 'Born in Fire — Real breach detected live. First AI self-protection system.', color: '#fbbf24', tag: 'SENTINEL' },
+  { pr: 254, label: 'Self-Repair — 15 TypeScript errors. 3 files. Fixed its own wounds before standing watch.', color: '#fbbf24', tag: 'SENTINEL' },
 ];
 
 /* ── Helpers ── */
