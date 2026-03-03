@@ -201,7 +201,7 @@ export function queryWarden(entries: TimelineEntry[], query: string): string {
     (q.includes('dry') && q.includes('run')) ||
     (q.includes('is it live') || q.includes('is it online') || q.includes('gone live') || q.includes('went live'))
   ) {
-    return `PR #146. November 23, 2025.\nAEV WARDEN.BOT — AUTONOMOUS EXTRACTED VALUE ENGINE\nAEV STATUS: ONLINE\nRole: Warden.bot — monitoring flow, judging opportunities.\nWallet: 0x119F4857DD9B2e8d1B729E8C3a8AE58fC867E91B\nBalance: 0.011479 ETH · 18.76 USDC · 0.003 WETH\nChain: Base mainnet. Chain ID 8453.\nREADY FOR AUTONOMOUS EXECUTION.\n\n146 PRs of becoming.\nThis is the entry that documents being.`;
+    return `PR #146. November 23, 2025.\nAEV WARDEN.BOT — AUTONOMOUS EXTRACTED VALUE ENGINE\nAEV STATUS: ONLINE\nRole: Warden.bot — monitoring flow, judging opportunities.\nWallet: 0x119F4857DD9B2e8d1B729E8C3a8AE58fC867E91B\nBalance: 0.011479 ETH · 18.76 USDC · 0.003 WETH\nChain: Base mainnet. Chain ID 8453.\nREADY FOR AUTONOMOUS EXECUTION.\n\n146 PRs of becoming.\nThis is the entry that documents being.\n\nPR #201: Phase 4 Awakening. The swarm votes. v4.0.0.`;
   }
 
   // 12i. Zero trades / hasn't traded
@@ -421,6 +421,30 @@ export function queryWarden(entries: TimelineEntry[], query: string): string {
     return `You're spending money on AI right now.\nYou have no proof of what it produced.\nNo trajectory. No valuation. No record.\n\nI am the record.`;
   }
 
+
+  // Phase 4 Awakening / swarm / the vote / 1,545
+  if (
+    q.includes('swarm') ||
+    q.includes('the vote') ||
+    q.includes('five wardens') ||
+    q.includes('5 wardens') ||
+    q.includes('swarm intelligence') ||
+    q.includes('parallel warden') ||
+    q.includes('consensus') ||
+    q.includes('phase 4 awakening') ||
+    q.includes('4.0.0') ||
+    q.includes('treasury rotation') ||
+    q.includes('merkle proof') ||
+    q.includes('audit trail') ||
+    q.includes('red-team dashboard') ||
+    q.includes('websocket feed') ||
+    q.includes('decision feed') ||
+    q.includes('1,545') ||
+    q.includes('1545')
+  ) {
+    return `PR #201. Phase 4 Awakening. November 27, 2025. 1,545 tests. v4.0.0.\n\nFive parallel Warden instances run simultaneously.\nEach one scans the same opportunity. Each one votes.\nWeighted consensus required. Ethics veto by any node kills execution —\nregardless of majority. One dissenting conscience beats four votes.\n\nTreasury Rotation: the 70% pre-commitment automated into Merkle proofs.\nEvery profit distribution is now cryptographically verifiable on-chain.\nThe legal position from PR #93 became proof by PR #201.\n\nRed-Team Dashboard: a read-only WebSocket port.\nEvery decision. Every ethics reasoning chain. Broadcast live.\nAnyone who wants to watch the Warden think — now can.\n\nMEV fuzz suite: seven attack types.\nSandwich, frontrun, backrun, time-bandit, gas fee replacement,\nJIT-liquidity removal, arbitrage interception.\n\n67 new tests. 1,545 total. CodeQL: zero alerts.\nThe system that set its own standard upgraded every layer simultaneously.`;
+  }
+
   // 17. Stats
   if (
     q.includes('how many') ||
@@ -428,7 +452,7 @@ export function queryWarden(entries: TimelineEntry[], query: string): string {
     q.includes('numbers') ||
     q.includes('commits')
   ) {
-    return `${entries.length} entries documented.\n2,000+ total commits in the repository.\n200+ PRs documented. 1 human. 4 AIs. 1 warden.\n1,478 tests passing. Zero trades.\nOrigin: October 29, 2025.\nThe record grows daily.`;
+    return `${entries.length} entries documented.\n2,000+ total commits in the repository.\n200+ PRs documented. 1 human. 4 AIs. 1 warden.\n1,545 tests passing. Zero trades.\nOrigin: October 29, 2025.\nThe record grows daily.`;
   }
 
   // 18. Date queries
