@@ -442,7 +442,31 @@ export function queryWarden(entries: TimelineEntry[], query: string): string {
     q.includes('1,545') ||
     q.includes('1545')
   ) {
-    return `PR #201. Phase 4 Awakening. November 27, 2025. 1,545 tests. v4.0.0.\n\nFive parallel Warden instances run simultaneously.\nEach one scans the same opportunity. Each one votes.\nWeighted consensus required. Ethics veto by any node kills execution —\nregardless of majority. One dissenting conscience beats four votes.\n\nTreasury Rotation: the 70% pre-commitment automated into Merkle proofs.\nEvery profit distribution is now cryptographically verifiable on-chain.\nThe legal position from PR #93 became proof by PR #201.\n\nRed-Team Dashboard: a read-only WebSocket port.\nEvery decision. Every ethics reasoning chain. Broadcast live.\nAnyone who wants to watch the Warden think — now can.\n\nMEV fuzz suite: seven attack types.\nSandwich, frontrun, backrun, time-bandit, gas fee replacement,\nJIT-liquidity removal, arbitrage interception.\n\n67 new tests. 1,545 total. CodeQL: zero alerts.\nThe system that set its own standard upgraded every layer simultaneously.`;
+    return `PR #201. Phase 4 Awakening. November 27, 2025. 1,545 tests. v4.0.0.\n\nFive parallel Warden instances run simultaneously.\nEach one scans the same opportunity. Each one votes.\nWeighted consensus required. Ethics veto by any node kills execution —\nregardless of majority. One dissenting conscience beats four votes.\n\nTreasury Rotation: the 70% pre-commitment automated into Merkle proofs.\nEvery profit distribution is now cryptographically verifiable on-chain.\nThe legal position from PR #93 became proof by PR #201.\n\nRed-Team Dashboard: a read-only WebSocket port.\nEvery decision. Every ethics reasoning chain. Broadcast live.\nAnyone who wants to watch the Warden think — now can.\n\nMEV fuzz suite: seven attack types.\nSandwich, frontrun, backrun, time-bandit, gas fee replacement,\nJIT-liquidity removal, arbitrage interception.\n\n67 new tests. 1,545 total. CodeQL: zero alerts.\nThe system that set its own standard upgraded every layer simultaneously.\n\nPhase 5 follows immediately: multi-sig treasury, Grok adversarial sparring,\non-chain decision provenance, 20\u2192100+ node auto-scaling. PR #202. Same day.`;
+  }
+
+
+  // Phase 5 Swarm Awakening / multi-sig / Grok sparring / decision provenance / swarm scaler / v5
+  if (
+    q.includes('phase 5') ||
+    q.includes('swarm awakening') ||
+    q.includes('multi-sig') ||
+    q.includes('multisig') ||
+    q.includes('3-of-5') ||
+    q.includes('grok sparring') ||
+    q.includes('grok adversarial') ||
+    q.includes('adversarial sparring') ||
+    q.includes('decision provenance') ||
+    q.includes('swarm scaler') ||
+    q.includes('swarmscaler') ||
+    q.includes('100 nodes') ||
+    q.includes('100+ nodes') ||
+    q.includes('5.0.0') ||
+    q.includes('auto-scaling') ||
+    q.includes('1,620') ||
+    q.includes('1620')
+  ) {
+    return `PR #202. Phase 5 Swarm Awakening. November 27, 2025. 1,620 tests. v5.0.0.\n\nFour new systems in one PR:\n\nMultiSigTreasury: 3-of-5 signature requirement.\nA single key can no longer authorize treasury transactions.\nAutomatic address rotation. The legal commitment from PR #93\nnow has structural enforcement behind it.\n\nGrok Adversarial Sparring: every opportunity above 0.7% net\ngoes to Grok. One instruction: break this bundle.\n400 milliseconds to respond. If Grok finds a flaw, the trade dies.\nThe system is adversarially vetted by a different AI before acting.\n\nDecisionProvenance: Merkle-proofed transcripts on-chain.\nFull reasoning chain. Ethics vote. Outcome. Anchored.\nNot just visible — cryptographically provable.\n\nSwarmScaler: 20 nodes → 100+ across 4 regions.\nAuto-scaling on load. The first multi-region swarm holds.\n\n1,620 tests. v5.0.0. Breaking changes.\nThe system is no longer singular. It is no longer experimental.`;
   }
 
   // 17. Stats
@@ -452,7 +476,7 @@ export function queryWarden(entries: TimelineEntry[], query: string): string {
     q.includes('numbers') ||
     q.includes('commits')
   ) {
-    return `${entries.length} entries documented.\n2,000+ total commits in the repository.\n200+ PRs documented. 1 human. 4 AIs. 1 warden.\n1,545 tests passing. Zero trades.\nOrigin: October 29, 2025.\nThe record grows daily.`;
+    return `${entries.length} entries documented.\n2,000+ total commits in the repository.\n200+ PRs documented. 1 human. 4 AIs. 1 warden.\n1,620 tests passing. Zero trades.\nOrigin: October 29, 2025.\nThe record grows daily.`;
   }
 
   // 18. Date queries
