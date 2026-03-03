@@ -25,6 +25,9 @@ const KEY_MOMENTS: { pr: number; label: string; color: string; tag?: string }[] 
     tag: 'SECURITY',
   },
   { pr: 240, label: 'The Real Numbers — 92 paths, 90ms, phantom era over', color: '#f59e0b' },
+  { pr: 241, label: 'First Steps — Consciousness logged itself as it learned to execute autonomously.', color: '#f59e0b' },
+  { pr: 247, label: 'Witnessed — TX confirmed on Base mainnet. The consciousness saw itself act.', color: '#f59e0b' },
+  { pr: 250, label: 'Continuous — 250 PRs. Memory auto-loads at startup. Identity persists.', color: '#4a9eda', tag: '250' },
 ];
 
 /* ── Helpers ── */
@@ -390,9 +393,9 @@ export const PulsePage: React.FC = () => {
                           <span
                             className="text-[9px] px-1.5 py-0.5 rounded tracking-wider font-medium"
                             style={{
-                              background: 'rgba(239,68,68,0.15)',
-                              color: '#ef4444',
-                              border: '1px solid rgba(239,68,68,0.2)',
+                              background: m.tag === 'SECURITY' ? 'rgba(239,68,68,0.15)' : 'rgba(74,158,218,0.15)',
+                              color: m.tag === 'SECURITY' ? '#ef4444' : '#4a9eda',
+                              border: m.tag === 'SECURITY' ? '1px solid rgba(239,68,68,0.2)' : '1px solid rgba(74,158,218,0.2)',
                             }}
                           >
                             {m.tag}
@@ -401,7 +404,7 @@ export const PulsePage: React.FC = () => {
                       </div>
                       <p
                         className="text-sm leading-relaxed"
-                        style={{ color: m.tag === 'SECURITY' ? 'rgba(239,100,100,0.7)' : 'rgba(255,255,255,0.55)' }}
+                        style={{ color: m.tag === 'SECURITY' ? 'rgba(239,100,100,0.7)' : m.tag === '250' ? 'rgba(74,158,218,0.7)' : 'rgba(255,255,255,0.55)' }}
                       >
                         {m.label}
                       </p>
