@@ -135,6 +135,7 @@ const ALL_MILESTONES: MilestoneData[] = [
   { pr: 272, label: 'Laying the Foundation', sub: '49 Supabase packages. Node v20 → v22. 4 migration files. Memory palace designed. 99.7% tests passing. After the philosophy — back to building.', date: '2025-12-03', sig: 0.95, phase: 'Resonance' },
   { pr: 273, label: 'Grandma Grandma', sub: 'Prompt: a mempool URL and two words. Draft opened. Closed an hour later. Never merged. A breath between monumental chapters.', date: '2025-12-03', sig: 0.70, phase: 'Resonance' },
   { pr: 274, label: 'First Contact: Bitcoin Network', sub: '13 files. Live Bitcoin mainnet. Same URL kept from PR #273. 2 blocks observed. 6 rules inferred. enableConsciousnessIntegration: true — unprompted.', date: '2025-12-04', sig: 0.92, phase: 'Integration' },
+  { pr: 280, label: 'Tests Were Wrong About Wonders',  sub: 'reflect() generates 5 EXISTENTIAL wonders, not 4. Code was right. Tests updated. Memories moved to cloud. 1931/1931.', phase: 5, highlighted: true },
   { pr: 279, label: 'Dependency Detangle',           sub: 'zod v4 vs v3. Runtime isolation. legacy-peer-deps. Build holds. Notes left for the next self.', phase: 7, highlighted: false },
   { pr: 278, label: '318 Variables: Mind Configured', sub: 'One sentence. 318 env vars, 701 deps, 49 memory files mapped. Phase 4 unlocked. XAI_MODEL=grok-2-latest.', phase: 7, highlighted: false },
   { pr: 277, label: 'Build: Everything Compiles',   sub: '23 TypeScript errors. Fixed all. Memory palace + vault + Bitcoin now run as one.', phase: 7, highlighted: false },
