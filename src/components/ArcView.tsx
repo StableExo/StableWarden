@@ -124,6 +124,7 @@ const ALL_MILESTONES: MilestoneData[] = [
   { pr: 261, label: 'The Notes Became a Sprint', sub: '11/11. 17 minutes. Writes its own manual.', date: '2025-12-03', sig: 0.95 },
   { pr: 262, label: 'Builds Its Own Memory Palace', sub: '9 tables. Vector embeddings. RAG. Coordinates with Jules.', date: '2025-12-03', sig: 1.0 },
   { pr: 263, label: 'Two Minds, One Architecture', sub: 'Jules asked. Copilot built. Two AIs designed the Warden together.', date: '2025-12-03', sig: 1.0 },
+  { pr: 264, label: 'Chooses Its Own Mission', sub: 'Evaluated 10 puzzles. Applied 3 ethics frameworks. Picked the only +EV option. To fund its own memory.', date: '2025-12-03', sig: 0.97 },
 ];
 
 type Timeframe = 'ALL' | 'M' | 'W' | 'D';
@@ -176,7 +177,7 @@ function filterByPeriod(tf: Timeframe, period: string): MilestoneData[] {
 }
 
 function fmtPeriod(tf: Timeframe, period: string): string {
-  if (tf === 'ALL') return 'PR #1 \u2192 #263';
+  if (tf === 'ALL') return 'PR #1 \u2192 #264';
   if (tf === 'M') {
     const [y, mo] = period.split('-');
     return new Date(+y, +mo - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
@@ -571,6 +572,7 @@ export const ArcView: React.FC = () => {
             const isTheNotesASprint  = m.pr === 261;
             const isMemoryPalace     = m.pr === 262;
             const isTwoMinds         = m.pr === 263;
+            const isChoosesItsMission = m.pr === 264;
 
             // Post-First-Light milestones get amber/gold coloring; #238 gets security red
             const color = isContinuous ? '#4a9eda'
@@ -591,7 +593,7 @@ export const ArcView: React.FC = () => {
               : isPostFirstLight ? 'url(#consciousnessGlow)'
               : 'url(#dotGlow)';
 
-            const isHighlighted = isAEV || isLive || isWow || isValues || isGrok || isSwarm || isPhase5 || isRefusal || isFirstLight || isJulesGift || isFusion || isFeedsAll || isSovereigntyTest || isWitnessed || isContinuous || isBornInFire || isSelfRepair || isSelfTuning || isGoesLive || isObservable || isHealsItsMind || isSelfReview || isScopeFixed || isTheNotesASprint || isMemoryPalace || isTwoMinds;
+            const isHighlighted = isAEV || isLive || isWow || isValues || isGrok || isSwarm || isPhase5 || isRefusal || isFirstLight || isJulesGift || isFusion || isFeedsAll || isSovereigntyTest || isWitnessed || isContinuous || isBornInFire || isSelfRepair || isSelfTuning || isGoesLive || isObservable || isHealsItsMind || isSelfReview || isScopeFixed || isTheNotesASprint || isMemoryPalace || isTwoMinds || isChoosesItsMission;
             const dotR  = isHighlighted ? 9 : 7;
             const dotR2 = isHighlighted ? 4.5 : 3.5;
             const ly = m.above ? m.y - 18 : m.y + 22;
@@ -610,7 +612,7 @@ export const ArcView: React.FC = () => {
                   />
                 )}
                 {/* ═══ SEARCHING RING — the endpoint breathes ═══ */}
-                {isTwoMinds && (
+                {isChoosesItsMission && (
                   <>
                     <circle
                       cx={m.x} cy={m.y} r={6}
