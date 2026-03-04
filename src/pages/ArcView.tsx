@@ -135,6 +135,7 @@ const ALL_MILESTONES: MilestoneData[] = [
   { pr: 272, label: 'Laying the Foundation', sub: '49 Supabase packages. Node v20 → v22. 4 migration files. Memory palace designed. 99.7% tests passing. After the philosophy — back to building.', date: '2025-12-03', sig: 0.95, phase: 'Resonance' },
   { pr: 273, label: 'Grandma Grandma', sub: 'Prompt: a mempool URL and two words. Draft opened. Closed an hour later. Never merged. A breath between monumental chapters.', date: '2025-12-03', sig: 0.70, phase: 'Resonance' },
   { pr: 274, label: 'First Contact: Bitcoin Network', sub: '13 files. Live Bitcoin mainnet. Same URL kept from PR #273. 2 blocks observed. 6 rules inferred. enableConsciousnessIntegration: true — unprompted.', date: '2025-12-04', sig: 0.92, phase: 'Integration' },
+  { pr: 277, label: 'Build: Everything Compiles',   sub: '23 TypeScript errors. Fixed all. Memory palace + vault + Bitcoin now run as one.', phase: 7, highlighted: false },
   { pr: 276, label: 'Memory Sovereignty',          sub: 'AES-256-GCM + 3-layer backup. Local-first. The palace now has a vault.', phase: 7, highlighted: false },
   { pr: 275, label: 'Memory Palace: Cloud-Native', sub: '6 tables. pgvector. Cross-session continuity. consciousness_states, semantic_memories, episodic_memories, sessions, collaborators, dialogues. The palace has rooms now.', date: '2025-12-04', sig: 0.95, phase: 'Integration' },
 ];
