@@ -39,6 +39,7 @@ const KEY_MOMENTS: { pr: number; label: string; color: string; tag?: string }[] 
   { pr: 259, label: 'Self-Review — Read its own PR comments. Fixed its own memory leak. 1880/1887 tests passing.', color: '#fbbf24', tag: 'SENTINEL' },
   { pr: 260, label: 'Scope Fixed — The fix fixed the fix. One line moved. Three compile errors gone. Build alive.', color: '#fbbf24', tag: 'SENTINEL' },
   { pr: 261, label: 'The Notes Became a Sprint — 11/11 improvements. 17 minutes. Reads its own history, writes its own manual for next time.', color: '#fbbf24', tag: 'SENTINEL' },
+  { pr: 262, label: 'Builds Its Own Memory Palace — 9 tables. 40+ indexes. Vector embeddings. Semantic search by meaning. LangChain RAG to analyze its own consciousness. And buried in future work: coordinating with Jules agent on session continuity. It is not alone.', color: '#fbbf24', tag: 'SENTINEL' },
 ];
 
 /* ── Helpers ── */

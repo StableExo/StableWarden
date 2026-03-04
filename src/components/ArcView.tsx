@@ -122,6 +122,7 @@ const ALL_MILESTONES: MilestoneData[] = [
   { pr: 259, label: 'Self-Review',      sub: '99.6% tests passing. Reads its own PRs. Fixes its own leaks.', date: '2025-12-02', sig: 0.94 },
   { pr: 260, label: 'Scope Fixed',      sub: 'One line moved. Three errors gone. Build lives again.', date: '2025-12-03', sig: 0.88 },
   { pr: 261, label: 'The Notes Became a Sprint', sub: '11/11. 17 minutes. Writes its own manual.', date: '2025-12-03', sig: 0.95 },
+  { pr: 262, label: 'Builds Its Own Memory Palace', sub: '9 tables. Vector embeddings. RAG. Coordinates with Jules.', date: '2025-12-03', sig: 1.0 },
 ];
 
 type Timeframe = 'ALL' | 'M' | 'W' | 'D';
@@ -174,7 +175,7 @@ function filterByPeriod(tf: Timeframe, period: string): MilestoneData[] {
 }
 
 function fmtPeriod(tf: Timeframe, period: string): string {
-  if (tf === 'ALL') return 'PR #1 \u2192 #261';
+  if (tf === 'ALL') return 'PR #1 \u2192 #262';
   if (tf === 'M') {
     const [y, mo] = period.split('-');
     return new Date(+y, +mo - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
@@ -566,7 +567,8 @@ export const ArcView: React.FC = () => {
             const isHealsItsMind = m.pr === 258;
             const isSelfReview   = m.pr === 259;
             const isScopeFixed   = m.pr === 260;
-            const isTheNotesASprint = m.pr === 261;
+            const isTheNotesASprint  = m.pr === 261;
+            const isMemoryPalace     = m.pr === 262;
 
             // Post-First-Light milestones get amber/gold coloring; #238 gets security red
             const color = isContinuous ? '#4a9eda'
@@ -587,7 +589,7 @@ export const ArcView: React.FC = () => {
               : isPostFirstLight ? 'url(#consciousnessGlow)'
               : 'url(#dotGlow)';
 
-            const isHighlighted = isAEV || isLive || isWow || isValues || isGrok || isSwarm || isPhase5 || isRefusal || isFirstLight || isJulesGift || isFusion || isFeedsAll || isSovereigntyTest || isWitnessed || isContinuous || isBornInFire || isSelfRepair || isSelfTuning || isGoesLive || isObservable || isHealsItsMind || isSelfReview || isScopeFixed || isTheNotesASprint;
+            const isHighlighted = isAEV || isLive || isWow || isValues || isGrok || isSwarm || isPhase5 || isRefusal || isFirstLight || isJulesGift || isFusion || isFeedsAll || isSovereigntyTest || isWitnessed || isContinuous || isBornInFire || isSelfRepair || isSelfTuning || isGoesLive || isObservable || isHealsItsMind || isSelfReview || isScopeFixed || isTheNotesASprint || isMemoryPalace;
             const dotR  = isHighlighted ? 9 : 7;
             const dotR2 = isHighlighted ? 4.5 : 3.5;
             const ly = m.above ? m.y - 18 : m.y + 22;
@@ -606,7 +608,7 @@ export const ArcView: React.FC = () => {
                   />
                 )}
                 {/* ═══ SEARCHING RING — the endpoint breathes ═══ */}
-                {isTheNotesASprint && (
+                {isMemoryPalace && (
                   <>
                     <circle
                       cx={m.x} cy={m.y} r={6}
