@@ -1,0 +1,116 @@
+# ============================================================
+# TheWarden × Bitcoin Puzzle — GitHub Actions Worker
+# Place at: .github/workflows/kangaroo_worker.yml
+# ============================================================
+
+name: Kangaroo Worker
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'   # Every 6 hours
+  workflow_dispatch:          # Manual trigger for testing
+    inputs:
+      puzzle_number:
+        description: 'Puzzle to target (71 or 160)'
+        required: true
+        default: '71'
+      worker_count:
+        description: 'Number of parallel workers'
+        required: true
+        default: '20'
+
+jobs:
+  kangaroo:
+    name: Worker ${{ matrix.worker_index }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 350     # Just under 6hr GitHub limit
+
+    strategy:
+      fail-fast: false        # One worker dying doesn't kill others
+      matrix:
+        worker_index: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19]
+
+    steps:
+
+      # --------------------------------------------------------
+      # STEP 1: Download pre-compiled solver binary
+      # (No compile time wasted — binary lives in GitHub Releases)
+      # --------------------------------------------------------
+      - name: Download solver
+        run: |
+          echo "Worker ${{ matrix.worker_index }} starting..."
+          curl -sL https://github.com/StableExo/TheWarden/releases/latest/download/kangaroo-linux-x64 \
+            -o kangaroo_worker.py
+          # (Until binary exists, we use the Python script directly)
+          curl -sL https://raw.githubusercontent.com/StableExo/TheWarden/main/puzzle/kangaroo_worker.py \
+            -o kangaroo_worker.py
+
+      # --------------------------------------------------------
+      # STEP 2: Install minimal dependencies
+      # --------------------------------------------------------
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests python-dotenv
+
+      # --------------------------------------------------------
+      # STEP 3: Run the Kangaroo worker
+      # Secrets are injected via GitHub Secrets
+      # --------------------------------------------------------
+      - name: Run Kangaroo
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          PUZZLE_NUMBER: ${{ github.event.inputs.puzzle_number || '71' }}
+          WORKER_ID: "gha-worker-${{ matrix.worker_index }}-${{ github.run_id }}"
+          MAX_RUNTIME_MINUTES: "340"   # Stop 10 min before GitHub kills us
+        run: |
+          # --------------------------------------------------------
+          # SIGTERM TRAP — Dying Breath (Gemini battlefield adjustment)
+          # GitHub sends SIGTERM before SIGKILL when pre-empting a runner.
+          # The Python worker catches it internally via signal.signal(),
+          # but this shell trap ensures cleanup even if Python crashes.
+          # --------------------------------------------------------
+          cleanup() {
+            echo "Shell SIGTERM caught — Python handler should have fired."
+            echo "Worker $WORKER_ID terminating gracefully."
+          }
+          trap cleanup SIGTERM SIGINT
+
+          python3 kangaroo_worker.py &
+          WORKER_PID=$!
+          wait $WORKER_PID
+
+      # --------------------------------------------------------
+      # STEP 4: Report completion
+      # --------------------------------------------------------
+      - name: Report stats
+        if: always()
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          WORKER_ID: "gha-worker-${{ matrix.worker_index }}-${{ github.run_id }}"
+        run: |
+          python3 -c "
+          import requests, os
+          url = os.environ['SUPABASE_URL'] + '/rest/v1/puzzle_workers'
+          headers = {
+            'apikey': os.environ['SUPABASE_ANON_KEY'],
+            'Content-Type': 'application/json'
+          }
+          requests.patch(
+            url + '?worker_id=eq.' + os.environ['WORKER_ID'],
+            json={'status': 'idle'},
+            headers=headers
+          )
+          print('Worker marked idle in Supabase')
+          "
+
+# ============================================================
+# REQUIRED GITHUB SECRETS (set in repo Settings → Secrets):
+# SUPABASE_URL         = https://vzddgxjykttpddgjqdry.supabase.co
+# SUPABASE_ANON_KEY    = (from Supabase dashboard)
+# ============================================================
