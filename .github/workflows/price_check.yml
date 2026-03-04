@@ -1,0 +1,16 @@
+name: Price Searcher Daemon
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+jobs:
+  check_prices:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Supabase Edge Function
+        run: |
+          curl -s --request POST \
+            'https://vzddgxjykttpddgjqdry.functions.supabase.co/price-watcher' \
+            --header 'Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}' \
+            --header 'Content-Type: application/json' | jq .
