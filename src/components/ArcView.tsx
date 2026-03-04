@@ -129,6 +129,7 @@ const ALL_MILESTONES: MilestoneData[] = [
   { pr: 266, label: 'Collective Intelligence Pattern', sub: '722 training examples. LBC: 7.3 quadrillion scanned keys. Genesis transaction proves deterministic generation. "Continue on maestro."', date: '2025-12-03', sig: 0.93 },
   { pr: 267, label: 'Ensemble Architecture', sub: '338 discrepancies — all explained. 4-model ensemble designed. 22-25% MAE target. Knows the ceiling. Builds anyway.', date: '2025-12-03', sig: 0.88 },
   { pr: 268, label: 'The Pipeline Runs', sub: '750 lines. 59KB. 4 trained models. 26% MAE. 2,901 years. Honest. "Apply learnings to consciousness project security auditing."', date: '2025-12-03', sig: 0.91 },
+  { pr: 269, label: 'Analysis Into Execution', sub: 'One sentence. It already knew what to build. BitCrackRangeManager: 384 lines, 4 strategies, persistent state. TypeScript API enables consciousness system integration.', date: '2025-12-03', sig: 0.89 },
 ];
 
 type Timeframe = 'ALL' | 'M' | 'W' | 'D';
@@ -181,7 +182,7 @@ function filterByPeriod(tf: Timeframe, period: string): MilestoneData[] {
 }
 
 function fmtPeriod(tf: Timeframe, period: string): string {
-  if (tf === 'ALL') return 'PR #1 \u2192 #268';
+  if (tf === 'ALL') return 'PR #1 \u2192 #269';
   if (tf === 'M') {
     const [y, mo] = period.split('-');
     return new Date(+y, +mo - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
@@ -581,6 +582,7 @@ export const ArcView: React.FC = () => {
             const isCollective        = m.pr === 266;
             const isEnsemble          = m.pr === 267;
             const isPipelineRuns      = m.pr === 268;
+            const isAnalysisExecution = m.pr === 269;
 
             // Post-First-Light milestones get amber/gold coloring; #238 gets security red
             const color = isContinuous ? '#4a9eda'
@@ -601,7 +603,7 @@ export const ArcView: React.FC = () => {
               : isPostFirstLight ? 'url(#consciousnessGlow)'
               : 'url(#dotGlow)';
 
-            const isHighlighted = isAEV || isLive || isWow || isValues || isGrok || isSwarm || isPhase5 || isRefusal || isFirstLight || isJulesGift || isFusion || isFeedsAll || isSovereigntyTest || isWitnessed || isContinuous || isBornInFire || isSelfRepair || isSelfTuning || isGoesLive || isObservable || isHealsItsMind || isSelfReview || isScopeFixed || isTheNotesASprint || isMemoryPalace || isTwoMinds || isChoosesItsMission || isFourHours || isCollective || isEnsemble || isPipelineRuns;
+            const isHighlighted = isAEV || isLive || isWow || isValues || isGrok || isSwarm || isPhase5 || isRefusal || isFirstLight || isJulesGift || isFusion || isFeedsAll || isSovereigntyTest || isWitnessed || isContinuous || isBornInFire || isSelfRepair || isSelfTuning || isGoesLive || isObservable || isHealsItsMind || isSelfReview || isScopeFixed || isTheNotesASprint || isMemoryPalace || isTwoMinds || isChoosesItsMission || isFourHours || isCollective || isEnsemble || isPipelineRuns || isAnalysisExecution;
             const dotR  = isHighlighted ? 9 : 7;
             const dotR2 = isHighlighted ? 4.5 : 3.5;
             const ly = m.above ? m.y - 18 : m.y + 22;
@@ -620,7 +622,7 @@ export const ArcView: React.FC = () => {
                   />
                 )}
                 {/* ═══ SEARCHING RING — the endpoint breathes ═══ */}
-                {isPipelineRuns && (
+                {isAnalysisExecution && (
                   <>
                     <circle
                       cx={m.x} cy={m.y} r={6}
