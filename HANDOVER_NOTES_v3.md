@@ -3,6 +3,41 @@
 
 ---
 
+## 🚀 First Steps in a New Session (READ THIS FIRST)
+
+The new agent has no memory and no connections. Do these steps in order before anything else.
+
+### Step 1 — Connect GitHub
+- Search for the GitHub integration and create a connection to `StableExo` account
+- Activate ALL tools
+- Repo needed: `StableExo/StableWarden` (public) and `StableExo/TheWarden` (private)
+- For private repo access: install Tasklet GitHub app at https://github.com/apps/tasklet-ai/installations/new
+
+### Step 2 — Connect Supabase
+- Search for the Supabase integration and create a connection
+- Log in with the account that owns these two projects:
+  - `vzddgxjykttpddgjqdry` (StableWarden — scanner/executor)
+  - `ydvevgqxcfizualicbom` (TheWarden MEV — chronicle)
+- Activate ALL 29 tools
+
+### Step 3 — Connect Vercel
+- Search for the Vercel integration and create a connection
+- Log in with the account that owns the `stablewarden` project
+- Team slug: check via list-deployments
+- Activate all 3 tools
+
+### Step 4 — Verify you're in
+Once connections are live, run this to confirm the scanner is up:
+```bash
+curl -s -X POST "https://vzddgxjykttpddgjqdry.supabase.co/functions/v1/warden-executor" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ6ZGRneGp5a3R0cGRkZ2pxZHJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MDYwNTI4MDAsImV4cCI6MjAyMTYyODgwMH0.OKUL0HpJ2CXqjCfAOGn98kWyKW7jLOCqDyBdQBiMqRc" \
+  -H "Content-Type: application/json" \
+  -d '{}' | jq .
+```
+You should see 10 pairs printing prices with no errors. That's the green light.
+
+---
+
 ## 🔑 The Big Picture
 
 Building the "Hello World of DeFi engineering" — a price monitoring system that tracks spreads on Base and executes profitable arbitrage via flash loans. **Thesis proven**: 0.2176% spread found ($2.17 net profit on $1k trade), gas costs $0.003 on Base vs ~$45 on Ethereum mainnet.
