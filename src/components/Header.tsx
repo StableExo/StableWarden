@@ -1,5 +1,5 @@
 import React from 'react';
-import { Eye, GitBranch, GitCommit, Users, Calendar } from 'lucide-react';
+import { Eye, GitPullRequest, FileText, Users, Calendar } from 'lucide-react';
 import { ProjectStats } from '../types';
 
 interface HeaderProps {
@@ -28,10 +28,10 @@ export const Header: React.FC<HeaderProps> = ({ stats }) => {
       </p>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatCard icon={<GitCommit size={16} className="opacity-60" />} label="Commits" value={stats.totalCommits.toLocaleString()} />
-        <StatCard icon={<GitBranch size={16} className="opacity-60" />} label="Branches" value={stats.totalBranches.toLocaleString()} />
+        <StatCard icon={<FileText size={16} className="opacity-60" />} label="Documented" value={stats.totalEntries.toLocaleString()} />
+        <StatCard icon={<GitPullRequest size={16} className="opacity-60" />} label="Pull Requests" value={stats.totalPRs.toLocaleString()} />
         <StatCard icon={<Calendar size={16} className="opacity-60" />} label="First Commit" value="Oct 29, 2025" />
-        <StatCard icon={<Users size={16} className="opacity-60" />} label="Contributors" value={stats.contributors.toString()} />
+        <StatCard icon={<Users size={16} className="opacity-60" />} label="Latest" value={stats.latestActivity} />
       </div>
     </div>
   );
