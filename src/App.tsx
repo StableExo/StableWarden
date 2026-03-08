@@ -10,6 +10,7 @@ const App: React.FC = () => (
       <Route path="/" element={<LandingPage />} />
       <Route path="/pulse" element={<PulsePage />} />
       <Route path="/record" element={<RecordPage />} />
+      <Route path="/arc" element={<RecordPage defaultView="arc" />} />
     </Routes>
   </HashRouter>
 );
