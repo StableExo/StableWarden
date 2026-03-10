@@ -29,6 +29,58 @@ const BOT_PRIVATE_KEY           = Deno.env.get("BOT_PRIVATE_KEY");
 const CONTRACT_ADDR = "0xA96B8c9577c2471044638772672fa1646643a9C8" as `0x${string}`;
 const SMART_WALLET  = "0x1272245579df2E988e168E1092E96F301c22DBC9" as `0x${string}`;
 const DRY_RUN = true;
+// ── POOL DATA CACHE ───────────────────────────────────────────────────────────
+// Pool addresses & token0 NEVER change — cache permanently across warm restarts.
+// slot0 / reserves are block-sensitive — 2 s TTL (= 1 Base block).
+const _poolAddrCache = new Map<string, string>();
+const _token0Cache   = new Map<string, string>();
+const SLOT_CACHE_TTL_MS = 2000;
+const _slotCache = new Map<string, { data: any; ts: number }>();
+
+async function cachedPoolAddr(
+  client: any, factory: `0x${string}`, factoryAbi: any, fn: string, args: readonly any[]
+): Promise<string> {
+  const k = `${factory}|${args.join('|')}`;
+  if (_poolAddrCache.has(k)) return _poolAddrCache.get(k)!;
+  const v = await client.readContract({ address: factory, abi: factoryAbi, functionName: fn, args }) as string;
+  _poolAddrCache.set(k, v);
+  return v;
+}
+
+async function cachedToken0(client: any, pool: string, abi: any): Promise<string> {
+  const k = pool.toLowerCase();
+  if (_token0Cache.has(k)) return _token0Cache.get(k)!;
+  const v = await client.readContract({ address: pool as `0x${string}`, abi, functionName: 'token0' }) as string;
+  _token0Cache.set(k, v);
+  return v;
+}
+
+function _slotFresh(k: string): any | null {
+  const e = _slotCache.get(k);
+  return e && (Date.now() - e.ts) < SLOT_CACHE_TTL_MS ? e.data : null;
+}
+
+async function cachedSlot0(client: any, pool: string, abi: any): Promise<any> {
+  const k = `s0|${pool.toLowerCase()}`;
+  const hit = _slotFresh(k); if (hit) return hit;
+  const v = await client.readContract({ address: pool as `0x${string}`, abi, functionName: 'slot0' });
+  _slotCache.set(k, { data: v, ts: Date.now() }); return v;
+}
+
+async function cachedLiquidity(client: any, pool: string, abi: any): Promise<bigint> {
+  const k = `liq|${pool.toLowerCase()}`;
+  const hit = _slotFresh(k); if (hit !== null) return hit as bigint;
+  const v = await client.readContract({ address: pool as `0x${string}`, abi, functionName: 'liquidity' }) as bigint;
+  _slotCache.set(k, { data: v, ts: Date.now() }); return v;
+}
+
+async function cachedReserves(client: any, pool: string): Promise<any> {
+  const k = `rsv|${pool.toLowerCase()}`;
+  const hit = _slotFresh(k); if (hit) return hit;
+  const v = await client.readContract({ address: pool as `0x${string}`, abi: V2_POOL_ABI, functionName: 'getReserves' });
+  _slotCache.set(k, { data: v, ts: Date.now() }); return v;
+}
+
 
 // ── QUOTER V2 — amount-aware simulation (official Base deployment) ─────────────
 const QUOTER_V2_ADDRESS = '0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a' as `0x${string}`;
@@ -281,11 +333,14 @@ function getTokenBPriceUsd(target: typeof TARGETS[0], venueAPrice: number, ethPr
 
 async function getHopPool(publicClient: any, hop: TriHop): Promise<string> {
   if (hop.poolType === 'univ3') {
-    return await publicClient.readContract({ address: hop.factory, abi: UNI_FACTORY_ABI, functionName: 'getPool', args: [hop.tokenIn as `0x${string}`, hop.tokenOut as `0x${string}`, hop.param] }) as string;
+    return cachedPoolAddr(publicClient, hop.factory, UNI_FACTORY_ABI, 'getPool',
+      [hop.tokenIn as `0x${string}`, hop.tokenOut as `0x${string}`, hop.param]);
   } else if (hop.poolType === 'slipstream') {
-    return await publicClient.readContract({ address: hop.factory, abi: SLIPSTREAM_FACTORY_ABI, functionName: 'getPool', args: [hop.tokenIn as `0x${string}`, hop.tokenOut as `0x${string}`, hop.param] }) as string;
+    return cachedPoolAddr(publicClient, hop.factory, SLIPSTREAM_FACTORY_ABI, 'getPool',
+      [hop.tokenIn as `0x${string}`, hop.tokenOut as `0x${string}`, hop.param]);
   } else {
-    return await publicClient.readContract({ address: AERO_FACTORY, abi: AERO_FACTORY_ABI, functionName: 'getPool', args: [hop.tokenIn as `0x${string}`, hop.tokenOut as `0x${string}`, hop.poolType === 'aero_samm'] }) as string;
+    return cachedPoolAddr(publicClient, AERO_FACTORY, AERO_FACTORY_ABI, 'getPool',
+      [hop.tokenIn as `0x${string}`, hop.tokenOut as `0x${string}`, hop.poolType === 'aero_samm']);
   }
 }
 
@@ -294,18 +349,18 @@ async function getHopRate(publicClient: any, hop: TriHop, poolAddr: string): Pro
   const decOut = DECIMALS[hop.tokenOut.toLowerCase()] ?? 18;
   if (hop.poolType === 'univ3') {
     const [slot0, token0, liquidity] = await Promise.all([
-      publicClient.readContract({ address: poolAddr as `0x${string}`, abi: V3_POOL_ABI, functionName: 'slot0' }),
-      publicClient.readContract({ address: poolAddr as `0x${string}`, abi: V3_POOL_ABI, functionName: 'token0' }),
-      publicClient.readContract({ address: poolAddr as `0x${string}`, abi: V3_POOL_ABI, functionName: 'liquidity' }),
+      cachedSlot0(publicClient, poolAddr, V3_POOL_ABI),
+      cachedToken0(publicClient, poolAddr, V3_POOL_ABI),
+      cachedLiquidity(publicClient, poolAddr, V3_POOL_ABI),
     ]);
     if (slot0[0] < MIN_SQRT_PRICE) return 0;
     if ((liquidity as bigint) === 0n) return 0;
     return calcV3Price(slot0[0], token0 as string, hop.tokenIn, decIn, decOut);
   } else if (hop.poolType === 'slipstream') {
     const [slot0, token0, liquidity] = await Promise.all([
-      publicClient.readContract({ address: poolAddr as `0x${string}`, abi: SLIPSTREAM_POOL_ABI, functionName: 'slot0' }),
-      publicClient.readContract({ address: poolAddr as `0x${string}`, abi: SLIPSTREAM_POOL_ABI, functionName: 'token0' }),
-      publicClient.readContract({ address: poolAddr as `0x${string}`, abi: SLIPSTREAM_POOL_ABI, functionName: 'liquidity' }),
+      cachedSlot0(publicClient, poolAddr, SLIPSTREAM_POOL_ABI),
+      cachedToken0(publicClient, poolAddr, SLIPSTREAM_POOL_ABI),
+      cachedLiquidity(publicClient, poolAddr, SLIPSTREAM_POOL_ABI),
     ]);
     if (slot0[0] < MIN_SQRT_PRICE) return 0;
     if ((liquidity as bigint) === 0n) return 0;
@@ -317,8 +372,8 @@ async function getHopRate(publicClient: any, hop: TriHop, poolAddr: string): Pro
     return Number(amounts[1]) / Number(amountIn) * Math.pow(10, decIn - decOut);
   } else {
     const [reserves, token0] = await Promise.all([
-      publicClient.readContract({ address: poolAddr as `0x${string}`, abi: V2_POOL_ABI, functionName: 'getReserves' }),
-      publicClient.readContract({ address: poolAddr as `0x${string}`, abi: V2_POOL_ABI, functionName: 'token0' }),
+      cachedReserves(publicClient, poolAddr),
+      cachedToken0(publicClient, poolAddr, V2_POOL_ABI),
     ]);
     return calcAeroPrice(reserves[0], reserves[1], token0 as string, hop.tokenIn, decIn, decOut);
   }
@@ -420,26 +475,29 @@ async function scanTarget(
   try {
     const decA = DECIMALS[target.tokenA.toLowerCase()] ?? 18;
     const decB = DECIMALS[target.tokenB.toLowerCase()] ?? 18;
-    const venueAPoolAddr = await publicClient.readContract({ address: target.venueAFactory, abi: UNI_FACTORY_ABI, functionName: 'getPool', args: [target.tokenA as `0x${string}`, target.tokenB as `0x${string}`, target.venueAParam] });
+    const venueAPoolAddr = await cachedPoolAddr(publicClient, target.venueAFactory, UNI_FACTORY_ABI, 'getPool',
+      [target.tokenA as `0x${string}`, target.tokenB as `0x${string}`, target.venueAParam]);
     let venueBPoolAddr: string;
     if (target.venueBType === 'slipstream') {
-      venueBPoolAddr = await publicClient.readContract({ address: target.venueBFactory!, abi: SLIPSTREAM_FACTORY_ABI, functionName: 'getPool', args: [target.tokenA as `0x${string}`, target.tokenB as `0x${string}`, target.venueBParam!] }) as string;
+      venueBPoolAddr = await cachedPoolAddr(publicClient, target.venueBFactory!, SLIPSTREAM_FACTORY_ABI, 'getPool',
+        [target.tokenA as `0x${string}`, target.tokenB as `0x${string}`, target.venueBParam!]);
     } else {
       const isStable = target.venueBType === 'aero_samm';
-      venueBPoolAddr = await publicClient.readContract({ address: AERO_FACTORY, abi: AERO_FACTORY_ABI, functionName: 'getPool', args: [target.tokenA as `0x${string}`, target.tokenB as `0x${string}`, isStable] }) as string;
+      venueBPoolAddr = await cachedPoolAddr(publicClient, AERO_FACTORY, AERO_FACTORY_ABI, 'getPool',
+        [target.tokenA as `0x${string}`, target.tokenB as `0x${string}`, isStable]);
     }
     if (venueAPoolAddr === NULL_ADDR || venueBPoolAddr === NULL_ADDR) return { target: target.name, status: "POOL_NOT_FOUND" };
     const [venueASlot0, venueAToken0] = await Promise.all([
-      publicClient.readContract({ address: venueAPoolAddr as `0x${string}`, abi: V3_POOL_ABI, functionName: 'slot0' }),
-      publicClient.readContract({ address: venueAPoolAddr as `0x${string}`, abi: V3_POOL_ABI, functionName: 'token0' }),
+      cachedSlot0(publicClient, venueAPoolAddr, V3_POOL_ABI),
+      cachedToken0(publicClient, venueAPoolAddr, V3_POOL_ABI),
     ]);
     if (venueASlot0[0] < MIN_SQRT_PRICE) return { target: target.name, status: "GHOST_POOL" };
     const venueAPrice = calcV3Price(venueASlot0[0], venueAToken0 as string, target.tokenA, decA, decB);
     let venueBPrice: number;
     if (target.venueBType === 'slipstream') {
       const [slipSlot0, slipToken0] = await Promise.all([
-        publicClient.readContract({ address: venueBPoolAddr as `0x${string}`, abi: SLIPSTREAM_POOL_ABI, functionName: 'slot0' }),
-        publicClient.readContract({ address: venueBPoolAddr as `0x${string}`, abi: SLIPSTREAM_POOL_ABI, functionName: 'token0' }),
+        cachedSlot0(publicClient, venueBPoolAddr, SLIPSTREAM_POOL_ABI),
+        cachedToken0(publicClient, venueBPoolAddr, SLIPSTREAM_POOL_ABI),
       ]);
       if (slipSlot0[0] < MIN_SQRT_PRICE) return { target: target.name, status: "GHOST_POOL" };
       venueBPrice = calcV3Price(slipSlot0[0], slipToken0 as string, target.tokenA, decA, decB);
@@ -450,8 +508,8 @@ async function scanTarget(
       venueBPrice = Number(amounts[1]) / Number(amountIn) * Math.pow(10, decA - decB);
     } else {
       const [aeroReserves, aeroToken0] = await Promise.all([
-        publicClient.readContract({ address: venueBPoolAddr as `0x${string}`, abi: V2_POOL_ABI, functionName: 'getReserves' }),
-        publicClient.readContract({ address: venueBPoolAddr as `0x${string}`, abi: V2_POOL_ABI, functionName: 'token0' }),
+        cachedReserves(publicClient, venueBPoolAddr),
+        cachedToken0(publicClient, venueBPoolAddr, V2_POOL_ABI),
       ]);
       venueBPrice = calcAeroPrice(aeroReserves[0], aeroReserves[1], aeroToken0 as string, target.tokenA, decA, decB);
     }
@@ -612,16 +670,16 @@ serve(async (_req) => {
     const gasCostEth = Number(formatUnits(gasPrice * estimatedGasUnits, 18));
     const ethPriceRef = { value: 2000 };
     const t1 = Date.now();
-    const matrixResults = await batchedAll(TARGETS, (target) => scanTarget(target, publicClient, execRpcClient, supabase, Number(trade_size_usd), Number(min_profit_threshold_usd), gasCostEth, ethPriceRef), 10, 100);
+    const matrixResults = await batchedAll(TARGETS, (target) => scanTarget(target, publicClient, execRpcClient, supabase, Number(trade_size_usd), Number(min_profit_threshold_usd), gasCostEth, ethPriceRef), 10, 50);
     const t2 = Date.now();
     const gasCostTriUsd = gasCostEth * ethPriceRef.value * 1.5;
-    const triResults = await batchedAll(TRI_CYCLES, (cycle) => scanTriCycle(cycle, publicClient, supabase, Number(trade_size_usd), Number(min_profit_threshold_usd), gasCostTriUsd, ethPriceRef.value), 3, 250);
+    const triResults = await batchedAll(TRI_CYCLES, (cycle) => scanTriCycle(cycle, publicClient, supabase, Number(trade_size_usd), Number(min_profit_threshold_usd), gasCostTriUsd, ethPriceRef.value), 4, 100);
     const t3 = Date.now();
     const profitable2Pool = matrixResults.filter((r: any) => r.isProfitable);
     const feeKilled       = matrixResults.filter((r: any) => r.action === "SKIPPED_FEES_EXCEED_SPREAD");
     const profitableTri   = triResults.filter((r: any) => r.isProfitable);
     const losingTri       = triResults.filter((r: any) => r.action === "LOSING_CYCLE");
     const simulated       = triResults.filter((r: any) => r.amount_simulation);
-    return new Response(safeJson({ version: "v40_liquidity_gate", network: "base", rpc: "coinbase_node", quoter_v2: QUOTER_V2_ADDRESS, dry_run: DRY_RUN, contract: CONTRACT_ADDR, smart_wallet: SMART_WALLET, execution_mode: "coinbase_paymaster_4337", eth_price_usd: ethPriceRef.value.toFixed(2), timing_ms: { init: t1-t0, two_pool_scan: t2-t1, tri_scan: t3-t2, total: t3-t0 }, summary: { two_pool: { total_pairs: TARGETS.length, fee_killed: feeKilled.length, profitable: profitable2Pool.length }, triangular: { total_cycles: TRI_CYCLES.length, losing_cycles: losingTri.length, profitable: profitableTri.length, simulated: simulated.length, execution_status: DRY_RUN ? "dry_run_with_paymaster" : "LIVE_PAYMASTER_EXECUTION" } }, two_pool_matrix: matrixResults, triangular_matrix: triResults }), { headers: { 'Content-Type': 'application/json' } });
+    return new Response(safeJson({ version: "v54_pool_cache", network: "base", rpc: "coinbase_node", quoter_v2: QUOTER_V2_ADDRESS, dry_run: DRY_RUN, contract: CONTRACT_ADDR, smart_wallet: SMART_WALLET, execution_mode: "coinbase_paymaster_4337", eth_price_usd: ethPriceRef.value.toFixed(2), timing_ms: { init: t1-t0, two_pool_scan: t2-t1, tri_scan: t3-t2, total: t3-t0 }, cache_stats: { pool_addresses: _poolAddrCache.size, token0_entries: _token0Cache.size, slot_entries: _slotCache.size }, summary: { two_pool: { total_pairs: TARGETS.length, fee_killed: feeKilled.length, profitable: profitable2Pool.length }, triangular: { total_cycles: TRI_CYCLES.length, losing_cycles: losingTri.length, profitable: profitableTri.length, simulated: simulated.length, execution_status: DRY_RUN ? "dry_run_with_paymaster" : "LIVE_PAYMASTER_EXECUTION" } }, two_pool_matrix: matrixResults, triangular_matrix: triResults }), { headers: { 'Content-Type': 'application/json' } });
   } catch (e: any) { return new Response(safeJson({ error: String(e) }), { status: 500, headers: { 'Content-Type': 'application/json' } }); }
 });
