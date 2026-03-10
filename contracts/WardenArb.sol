@@ -3,24 +3,24 @@ pragma solidity 0.8.20;
 
 /**
  * @title WardenArb
- * @notice Lean 2-pool arbitrage contract for StableWarden
- * @dev Aave V3 flash loans → UniswapV3/Slipstream ↔ Aerodrome vAMM/sAMM
+ * @notice Lean 2-pool + 3-hop triangular arbitrage contract for StableWarden
+ * @dev Aave V3 flash loans -> UniswapV3/Slipstream <-> Aerodrome vAMM/sAMM
  * @custom:network Base mainnet
- * @custom:scanner warden-executor v36+
+ * @custom:scanner warden-executor v37+
  *
- * executeArb signature matches warden-executor v36 exactly:
- *   executeArb(tokenA, tokenB, uniV3Pool, venueBPool, venueBType, amountIn, direction, minProfit, txRef)
+ * Two execution modes:
  *
- * venueBType:
- *   0 = Slipstream (UniV3-style CL)
+ * MODE 0 — 2-Pool Arb (executeArb):
+ *   Flash borrow tokenB, swap through 2 venues, profit in tokenB
+ *
+ * MODE 1 — 3-Hop Triangular (executeTriArb):
+ *   Flash borrow startToken, swap through 3 pools in a cycle, profit in startToken
+ *   e.g. WETH -> weETH -> USDC -> WETH
+ *
+ * Pool types (shared across both modes):
+ *   0 = UniV3 / Slipstream (concentrated liquidity)
  *   1 = Aerodrome vAMM (volatile, V2-style)
  *   2 = Aerodrome sAMM (stable, V2-style)
- *
- * direction:
- *   0 = venueA price >= venueB → buy tokenA cheap on venueB, sell on UniV3
- *   1 = venueB price > venueA → buy tokenA cheap on UniV3, sell on venueB
- *
- * amountIn: always denominated in tokenB
  */
 
 // ── Minimal Interfaces ────────────────────────────────────────────────────────
@@ -75,19 +75,25 @@ contract WardenArb {
     // Aave V3 Pool — Base mainnet
     IAavePool constant AAVE = IAavePool(0xA238Dd80C259a72e81d7e4664a9801593F98d1c5);
 
-    // Sqrt price limits for UniV3 swaps (use boundary values to accept any price)
+    // Sqrt price limits for UniV3 swaps (boundary values to accept any price)
     uint160 constant MIN_SQRT = 4295128740;
     uint160 constant MAX_SQRT = 1461446703485210103287273052203988822378723970341;
 
-    // Venue B type constants (must match warden-executor VENUE_B_TYPE_MAP)
-    uint8 constant VENUE_SLIPSTREAM = 0;
-    uint8 constant VENUE_AERO_VAMM  = 1;
-    uint8 constant VENUE_AERO_SAMM  = 2;
+    // Pool type constants (must match warden-executor)
+    uint8 constant POOL_UNIV3       = 0;  // UniV3 or Slipstream CL
+    uint8 constant POOL_AERO_VAMM   = 1;  // Aerodrome volatile AMM
+    uint8 constant POOL_AERO_SAMM   = 2;  // Aerodrome stable AMM
+
+    // Mode constants (encoded in flash loan params)
+    uint8 constant MODE_TWO_POOL = 0;
+    uint8 constant MODE_TRI_HOP  = 1;
 
     address public immutable owner;
 
     /// @dev Tracks which pool is currently mid-swap, used to auth UniV3 callbacks
     address private _activeUniPool;
+
+    // ── Structs ──────────────────────────────────────────────────────────────
 
     struct ArbParams {
         address tokenA;
@@ -100,6 +106,20 @@ contract WardenArb {
         uint256 minProfit;
     }
 
+    struct TriArbParams {
+        address startToken;  // Flash borrowed, profit returned here
+        address midToken1;   // First intermediate (e.g., weETH)
+        address midToken2;   // Second intermediate (e.g., USDC)
+        address pool1;       // startToken -> midToken1
+        address pool2;       // midToken1 -> midToken2
+        address pool3;       // midToken2 -> startToken
+        uint8   pool1Type;   // 0=UniV3/Slipstream, 1=vAMM, 2=sAMM
+        uint8   pool2Type;
+        uint8   pool3Type;
+        uint256 amountIn;
+        uint256 minProfit;
+    }
+
     modifier onlyOwner() {
         require(msg.sender == owner, "!owner");
         _;
@@ -109,19 +129,10 @@ contract WardenArb {
         owner = msg.sender;
     }
 
-    // ── External Entry Point (called by warden-executor) ──────────────────────
+    // ── 2-Pool Entry Point (called by warden-executor) ──────────────────────
 
     /**
      * @notice Execute a 2-pool arbitrage via Aave V3 flash loan
-     * @param tokenA  First token in the pair
-     * @param tokenB  Second token in the pair (flash borrowed, profit returned in this token)
-     * @param uniV3Pool   UniswapV3 or Slipstream pool address (venue A)
-     * @param venueBPool  Aerodrome or Slipstream pool address (venue B)
-     * @param venueBType  0=Slipstream, 1=Aerodrome_vAMM, 2=Aerodrome_sAMM
-     * @param amountIn    Borrow amount, denominated in tokenB
-     * @param direction   0=buy on venueB sell on UniV3, 1=buy on UniV3 sell on venueB
-     * @param minProfit   Minimum profit required (in tokenB), reverts if not met
-     * @param txRef       Scanner-generated reference ID (logged, not used in execution)
      */
     function executeArb(
         address tokenA,
@@ -135,42 +146,102 @@ contract WardenArb {
         bytes32 /* txRef */
     ) external onlyOwner {
         bytes memory params = abi.encode(
-            ArbParams(tokenA, tokenB, uniV3Pool, venueBPool, venueBType, amountIn, direction, minProfit)
+            MODE_TWO_POOL,
+            abi.encode(ArbParams(tokenA, tokenB, uniV3Pool, venueBPool, venueBType, amountIn, direction, minProfit))
         );
-        // Flash borrow tokenB — profit returned in tokenB
         AAVE.flashLoanSimple(address(this), tokenB, amountIn, params, 0);
     }
 
-    // ── Aave V3 Flash Loan Callback ───────────────────────────────────────────
+    // ── 3-Hop Triangular Entry Point ────────────────────────────────────────
 
     /**
-     * @notice Called by Aave after transferring flash loan funds to this contract
-     * @dev Must approve Aave to pull back (amount + premium) before returning true
+     * @notice Execute a 3-hop triangular arbitrage via Aave V3 flash loan
+     * @dev Cycle: startToken -> midToken1 -> midToken2 -> startToken
+     * @param startToken  Token to flash borrow (profit returned here)
+     * @param midToken1   First intermediate token
+     * @param midToken2   Second intermediate token
+     * @param pool1       Pool for startToken -> midToken1
+     * @param pool2       Pool for midToken1 -> midToken2
+     * @param pool3       Pool for midToken2 -> startToken
+     * @param pool1Type   0=UniV3/Slipstream, 1=vAMM, 2=sAMM
+     * @param pool2Type   Pool type for hop 2
+     * @param pool3Type   Pool type for hop 3
+     * @param amountIn    Flash borrow amount in startToken
+     * @param minProfit   Minimum profit in startToken
      */
+    function executeTriArb(
+        address startToken,
+        address midToken1,
+        address midToken2,
+        address pool1,
+        address pool2,
+        address pool3,
+        uint8   pool1Type,
+        uint8   pool2Type,
+        uint8   pool3Type,
+        uint256 amountIn,
+        uint256 minProfit,
+        bytes32 /* txRef */
+    ) external onlyOwner {
+        bytes memory params = abi.encode(
+            MODE_TRI_HOP,
+            abi.encode(TriArbParams(
+                startToken, midToken1, midToken2,
+                pool1, pool2, pool3,
+                pool1Type, pool2Type, pool3Type,
+                amountIn, minProfit
+            ))
+        );
+        AAVE.flashLoanSimple(address(this), startToken, amountIn, params, 0);
+    }
+
+    // ── Aave V3 Flash Loan Callback ─────────────────────────────────────────
+
     function executeOperation(
-        address asset,       // tokenB
-        uint256 amount,      // amountIn
-        uint256 premium,     // Aave fee (0.05%)
+        address asset,
+        uint256 amount,
+        uint256 premium,
         address initiator,
         bytes calldata params
     ) external returns (bool) {
         require(msg.sender == address(AAVE), "!aave");
         require(initiator == address(this), "!initiator");
 
-        ArbParams memory p = abi.decode(params, (ArbParams));
+        (uint8 mode, bytes memory innerParams) = abi.decode(params, (uint8, bytes));
         uint256 repay = amount + premium;
+
+        if (mode == MODE_TWO_POOL) {
+            _executeTwoPool(asset, amount, repay, innerParams);
+        } else if (mode == MODE_TRI_HOP) {
+            _executeTriHop(asset, amount, repay, innerParams);
+        } else {
+            revert("!mode");
+        }
+
+        return true;
+    }
+
+    // ── 2-Pool Execution Logic ──────────────────────────────────────────────
+
+    function _executeTwoPool(
+        address asset,
+        uint256 amount,
+        uint256 repay,
+        bytes memory innerParams
+    ) internal {
+        ArbParams memory p = abi.decode(innerParams, (ArbParams));
 
         uint256 tokenAReceived;
         uint256 tokenBReceived;
 
         if (p.direction == 0) {
-            // Buy tokenA cheap on venueB (pay tokenB), sell tokenA on UniV3 (get tokenB)
-            tokenAReceived = _swapVenueB(p.venueBPool, p.venueBType, asset, p.tokenA, amount);
-            tokenBReceived = _swapUniV3(p.uniV3Pool, p.tokenA, asset, tokenAReceived);
+            // Buy tokenA cheap on venueB, sell on UniV3
+            tokenAReceived = _swapOnPool(p.venueBPool, p.venueBType, asset, p.tokenA, amount);
+            tokenBReceived = _swapOnPool(p.uniV3Pool, POOL_UNIV3, p.tokenA, asset, tokenAReceived);
         } else {
-            // Buy tokenA cheap on UniV3 (pay tokenB), sell tokenA on venueB (get tokenB)
-            tokenAReceived = _swapUniV3(p.uniV3Pool, asset, p.tokenA, amount);
-            tokenBReceived = _swapVenueB(p.venueBPool, p.venueBType, p.tokenA, asset, tokenAReceived);
+            // Buy tokenA cheap on UniV3, sell on venueB
+            tokenAReceived = _swapOnPool(p.uniV3Pool, POOL_UNIV3, asset, p.tokenA, amount);
+            tokenBReceived = _swapOnPool(p.venueBPool, p.venueBType, p.tokenA, asset, tokenAReceived);
         }
 
         require(tokenBReceived >= repay + p.minProfit, "!profit");
@@ -181,11 +252,63 @@ contract WardenArb {
         // Send profit to owner
         uint256 profit = tokenBReceived - repay;
         require(IERC20(asset).transfer(owner, profit), "!transfer");
-
-        return true;
     }
 
-    // ── UniswapV3 / Slipstream Swap ───────────────────────────────────────────
+    // ── 3-Hop Triangular Execution Logic ────────────────────────────────────
+
+    function _executeTriHop(
+        address asset,
+        uint256 amount,
+        uint256 repay,
+        bytes memory innerParams
+    ) internal {
+        TriArbParams memory p = abi.decode(innerParams, (TriArbParams));
+
+        // Hop 1: startToken -> midToken1
+        uint256 hop1Out = _swapOnPool(p.pool1, p.pool1Type, p.startToken, p.midToken1, amount);
+
+        // Hop 2: midToken1 -> midToken2
+        uint256 hop2Out = _swapOnPool(p.pool2, p.pool2Type, p.midToken1, p.midToken2, hop1Out);
+
+        // Hop 3: midToken2 -> startToken (back to flash borrowed token)
+        uint256 hop3Out = _swapOnPool(p.pool3, p.pool3Type, p.midToken2, p.startToken, hop2Out);
+
+        require(hop3Out >= repay + p.minProfit, "!profit");
+
+        // Approve Aave to pull repayment
+        require(IERC20(asset).approve(address(AAVE), repay), "!approve");
+
+        // Send profit to owner
+        uint256 profit = hop3Out - repay;
+        require(IERC20(asset).transfer(owner, profit), "!transfer");
+    }
+
+    // ── Unified Pool Swap Router ────────────────────────────────────────────
+
+    /**
+     * @notice Swap on any supported pool type
+     * @param pool     Pool address
+     * @param poolType 0=UniV3/Slipstream, 1=Aero vAMM, 2=Aero sAMM
+     * @param tokenIn  Input token
+     * @param tokenOut Output token
+     * @param amountIn Amount to swap
+     * @return amountOut Amount received
+     */
+    function _swapOnPool(
+        address pool,
+        uint8   poolType,
+        address tokenIn,
+        address tokenOut,
+        uint256 amountIn
+    ) internal returns (uint256 amountOut) {
+        if (poolType == POOL_UNIV3) {
+            return _swapUniV3(pool, tokenIn, tokenOut, amountIn);
+        } else {
+            return _swapAero(pool, tokenIn, tokenOut, amountIn);
+        }
+    }
+
+    // ── UniswapV3 / Slipstream Swap ─────────────────────────────────────────
 
     function _swapUniV3(
         address pool,
@@ -220,21 +343,14 @@ contract WardenArb {
         require(IERC20(tokenIn).transfer(msg.sender, owed), "!cb_transfer");
     }
 
-    // ── Aerodrome vAMM / sAMM Swap ────────────────────────────────────────────
+    // ── Aerodrome vAMM / sAMM Swap ─────────────────────────────────────────
 
-    function _swapVenueB(
+    function _swapAero(
         address pool,
-        uint8   venueType,
         address tokenIn,
         address tokenOut,
         uint256 amountIn
     ) internal returns (uint256 amountOut) {
-        if (venueType == VENUE_SLIPSTREAM) {
-            // Slipstream is a CL pool — use UniV3-style path
-            return _swapUniV3(pool, tokenIn, tokenOut, amountIn);
-        }
-
-        // Aerodrome vAMM or sAMM — transfer-first (V2-style)
         amountOut = IAeroPool(pool).getAmountOut(amountIn, tokenIn);
         require(amountOut > 0, "!aero_out");
 
@@ -248,7 +364,7 @@ contract WardenArb {
         IAeroPool(pool).swap(out0, out1, address(this), "");
     }
 
-    // ── Admin ─────────────────────────────────────────────────────────────────
+    // ── Admin ───────────────────────────────────────────────────────────────
 
     /// @notice Rescue stuck tokens or ETH (owner only)
     function rescue(address token) external onlyOwner {
