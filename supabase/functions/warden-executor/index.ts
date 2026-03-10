@@ -153,7 +153,7 @@ const TRI_CYCLES: TriCycle[] = [
   { name: "WETH→USDC→cbBTC→WETH", startToken: WETH, hops: [
       { name: "UniV3_0.05%",  tokenIn: WETH,  tokenOut: USDC,  factory: UNI_V3_FACTORY,    param: 500,  poolType: 'univ3',      feePct: 0.0005 },
       { name: "UniV3_0.01%",  tokenIn: USDC,  tokenOut: cbBTC, factory: UNI_V3_FACTORY,    param: 100,  poolType: 'univ3',      feePct: 0.0001 },
-      { name: "Slip_1",       tokenIn: cbBTC, tokenOut: WETH,  factory: SLIPSTREAM_FACTORY, param: 1,   poolType: 'slipstream', feePct: 0.0001 },
+      { name: "Slip_100",     tokenIn: cbBTC, tokenOut: WETH,  factory: SLIPSTREAM_FACTORY, param: 100, poolType: 'slipstream', feePct: 0.0001 },
   ]},
   { name: "WETH→cbETH→USDC→WETH", startToken: WETH, hops: [
       { name: "UniV3_0.01%",  tokenIn: WETH,  tokenOut: cbETH, factory: UNI_V3_FACTORY,    param: 100,  poolType: 'univ3',      feePct: 0.0001 },
@@ -165,11 +165,7 @@ const TRI_CYCLES: TriCycle[] = [
       { name: "UniV3_0.05%",  tokenIn: wstETH, tokenOut: USDC,   factory: UNI_V3_FACTORY,    param: 500,  poolType: 'univ3',      feePct: 0.0005 },
       { name: "Aero_vAMM",    tokenIn: USDC,   tokenOut: WETH,   factory: AERO_FACTORY,      param: 0,    poolType: 'aero_vamm',  feePct: 0.002  },
   ]},
-  { name: "WETH→weETH→USDC→WETH", startToken: WETH, hops: [
-      { name: "UniV3_0.01%",  tokenIn: WETH,  tokenOut: weETH, factory: UNI_V3_FACTORY,    param: 100,  poolType: 'univ3',      feePct: 0.0001 },
-      { name: "UniV3_0.05%",  tokenIn: weETH, tokenOut: USDC,  factory: UNI_V3_FACTORY,    param: 500,  poolType: 'univ3',      feePct: 0.0005 },
-      { name: "Aero_vAMM",    tokenIn: USDC,  tokenOut: WETH,  factory: AERO_FACTORY,      param: 0,    poolType: 'aero_vamm',  feePct: 0.002  },
-  ]},
+  // REMOVED: WETH→weETH→USDC→WETH — weETH/USDC UniV3 fee=500 pool has 0 liquidity (phantom pool)
   { name: "WETH→AERO→USDC→WETH", startToken: WETH, hops: [
       { name: "Slip_200",     tokenIn: WETH, tokenOut: AERO, factory: SLIPSTREAM_FACTORY,  param: 200,  poolType: 'slipstream', feePct: 0.0005 },
       { name: "UniV3_0.3%",   tokenIn: AERO, tokenOut: USDC, factory: UNI_V3_FACTORY,      param: 3000, poolType: 'univ3',      feePct: 0.003  },
@@ -185,11 +181,7 @@ const TRI_CYCLES: TriCycle[] = [
       { name: "UniV3_0.3%",   tokenIn: WETH,  tokenOut: cbBTC, factory: UNI_V3_FACTORY,    param: 3000, poolType: 'univ3',      feePct: 0.003  },
       { name: "Slip_1",       tokenIn: cbBTC, tokenOut: USDC,  factory: SLIPSTREAM_FACTORY, param: 1,   poolType: 'slipstream', feePct: 0.0001 },
   ]},
-  { name: "WETH→cbETH→cbBTC→WETH", startToken: WETH, hops: [
-      { name: "UniV3_0.01%",  tokenIn: WETH,  tokenOut: cbETH, factory: UNI_V3_FACTORY,    param: 100,  poolType: 'univ3',      feePct: 0.0001 },
-      { name: "UniV3_0.01%",  tokenIn: cbETH, tokenOut: cbBTC, factory: UNI_V3_FACTORY,    param: 100,  poolType: 'univ3',      feePct: 0.0001 },
-      { name: "Slip_1",       tokenIn: cbBTC, tokenOut: WETH,  factory: SLIPSTREAM_FACTORY, param: 1,   poolType: 'slipstream', feePct: 0.0001 },
-  ]},
+  // REMOVED: WETH→cbETH→cbBTC→WETH — cbETH/cbBTC UniV3 fee=100 pool has 0 liquidity (phantom pool)
 ];
 
 const UNI_FACTORY_ABI = parseAbi(['function getPool(address tokenA, address tokenB, uint24 fee) view returns (address pool)']);
@@ -197,11 +189,13 @@ const SLIPSTREAM_FACTORY_ABI = parseAbi(['function getPool(address tokenA, addre
 const AERO_FACTORY_ABI = parseAbi(['function getPool(address tokenA, address tokenB, bool stable) view returns (address pool)']);
 const V3_POOL_ABI = parseAbi([
   'function slot0() view returns (uint160 sqrtPriceX96, int24 tick, uint16 observationIndex, uint16 observationCardinality, uint16 observationCardinalityNext, uint8 feeProtocol, bool unlocked)',
-  'function token0() view returns (address)'
+  'function token0() view returns (address)',
+  'function liquidity() view returns (uint128)'
 ]);
 const SLIPSTREAM_POOL_ABI = parseAbi([
   'function slot0() view returns (uint160 sqrtPriceX96, int24 tick, uint16 observationIndex, uint16 observationCardinality, uint16 observationCardinalityNext, bool unlocked)',
-  'function token0() view returns (address)'
+  'function token0() view returns (address)',
+  'function liquidity() view returns (uint128)'
 ]);
 const V2_POOL_ABI = parseAbi([
   'function getReserves() view returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast)',
@@ -299,18 +293,22 @@ async function getHopRate(publicClient: any, hop: TriHop, poolAddr: string): Pro
   const decIn  = DECIMALS[hop.tokenIn.toLowerCase()]  ?? 18;
   const decOut = DECIMALS[hop.tokenOut.toLowerCase()] ?? 18;
   if (hop.poolType === 'univ3') {
-    const [slot0, token0] = await Promise.all([
+    const [slot0, token0, liquidity] = await Promise.all([
       publicClient.readContract({ address: poolAddr as `0x${string}`, abi: V3_POOL_ABI, functionName: 'slot0' }),
       publicClient.readContract({ address: poolAddr as `0x${string}`, abi: V3_POOL_ABI, functionName: 'token0' }),
+      publicClient.readContract({ address: poolAddr as `0x${string}`, abi: V3_POOL_ABI, functionName: 'liquidity' }),
     ]);
     if (slot0[0] < MIN_SQRT_PRICE) return 0;
+    if ((liquidity as bigint) === 0n) return 0;
     return calcV3Price(slot0[0], token0 as string, hop.tokenIn, decIn, decOut);
   } else if (hop.poolType === 'slipstream') {
-    const [slot0, token0] = await Promise.all([
+    const [slot0, token0, liquidity] = await Promise.all([
       publicClient.readContract({ address: poolAddr as `0x${string}`, abi: SLIPSTREAM_POOL_ABI, functionName: 'slot0' }),
       publicClient.readContract({ address: poolAddr as `0x${string}`, abi: SLIPSTREAM_POOL_ABI, functionName: 'token0' }),
+      publicClient.readContract({ address: poolAddr as `0x${string}`, abi: SLIPSTREAM_POOL_ABI, functionName: 'liquidity' }),
     ]);
     if (slot0[0] < MIN_SQRT_PRICE) return 0;
+    if ((liquidity as bigint) === 0n) return 0;
     return calcV3Price(slot0[0], token0 as string, hop.tokenIn, decIn, decOut);
   } else if (hop.poolType === 'aero_samm') {
     const amountIn = BigInt(10 ** decIn);
@@ -624,6 +622,6 @@ serve(async (_req) => {
     const profitableTri   = triResults.filter((r: any) => r.isProfitable);
     const losingTri       = triResults.filter((r: any) => r.action === "LOSING_CYCLE");
     const simulated       = triResults.filter((r: any) => r.amount_simulation);
-    return new Response(safeJson({ version: "v39_paymaster", network: "base", rpc: "coinbase_node", quoter_v2: QUOTER_V2_ADDRESS, dry_run: DRY_RUN, contract: CONTRACT_ADDR, smart_wallet: SMART_WALLET, execution_mode: "coinbase_paymaster_4337", eth_price_usd: ethPriceRef.value.toFixed(2), timing_ms: { init: t1-t0, two_pool_scan: t2-t1, tri_scan: t3-t2, total: t3-t0 }, summary: { two_pool: { total_pairs: TARGETS.length, fee_killed: feeKilled.length, profitable: profitable2Pool.length }, triangular: { total_cycles: TRI_CYCLES.length, losing_cycles: losingTri.length, profitable: profitableTri.length, simulated: simulated.length, execution_status: DRY_RUN ? "dry_run_with_paymaster" : "LIVE_PAYMASTER_EXECUTION" } }, two_pool_matrix: matrixResults, triangular_matrix: triResults }), { headers: { 'Content-Type': 'application/json' } });
+    return new Response(safeJson({ version: "v40_liquidity_gate", network: "base", rpc: "coinbase_node", quoter_v2: QUOTER_V2_ADDRESS, dry_run: DRY_RUN, contract: CONTRACT_ADDR, smart_wallet: SMART_WALLET, execution_mode: "coinbase_paymaster_4337", eth_price_usd: ethPriceRef.value.toFixed(2), timing_ms: { init: t1-t0, two_pool_scan: t2-t1, tri_scan: t3-t2, total: t3-t0 }, summary: { two_pool: { total_pairs: TARGETS.length, fee_killed: feeKilled.length, profitable: profitable2Pool.length }, triangular: { total_cycles: TRI_CYCLES.length, losing_cycles: losingTri.length, profitable: profitableTri.length, simulated: simulated.length, execution_status: DRY_RUN ? "dry_run_with_paymaster" : "LIVE_PAYMASTER_EXECUTION" } }, two_pool_matrix: matrixResults, triangular_matrix: triResults }), { headers: { 'Content-Type': 'application/json' } });
   } catch (e: any) { return new Response(safeJson({ error: String(e) }), { status: 500, headers: { 'Content-Type': 'application/json' } }); }
 });
