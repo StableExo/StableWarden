@@ -125,8 +125,9 @@ contract WardenArb {
         _;
     }
 
-    constructor() {
-        owner = msg.sender;
+    constructor(address _owner) {
+        require(_owner != address(0), "!zero");
+        owner = _owner;
     }
 
     // ── 2-Pool Entry Point (called by warden-executor) ──────────────────────
