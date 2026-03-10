@@ -102,23 +102,40 @@ contract FlashSwapV3 is
     uint8 constant DEX_TYPE_BALANCER = 4;
     uint8 constant DEX_TYPE_CURVE = 5;
     uint8 constant DEX_TYPE_UNISWAP_V4 = 6;
+    uint8 constant DEX_TYPE_SLIPSTREAM = 7;  // Aerodrome CL (V3-style via separate router)
+
+    // --- Aerodrome Router interface ---
+    struct AeroRoute {
+        address from;
+        address to;
+        bool stable;
+        address factory;
+    }
+    interface IAerodromeRouter {
+        function swapExactTokensForTokens(
+            uint256 amountIn,
+            uint256 amountOutMin,
+            AeroRoute[] calldata routes,
+            address to,
+            uint256 deadline
+        ) external returns (uint256[] memory amounts);
+    }
 
     // --- State Variables ---
     ISwapRouter public immutable swapRouter;
+    ISwapRouter public immutable slipstreamRouter;  // Aerodrome CL router
+    IAerodromeRouter public immutable aerodromeRouter; // Aerodrome V2 router
     IUniswapV2Router02 public immutable sushiRouter;
     IBalancerVault public immutable balancerVault;
     ISoloMargin public immutable dydxSoloMargin;
     IPool public immutable aavePool;
     
     address payable public immutable owner;
-    address payable public immutable titheRecipient;
-    uint16 public immutable titheBps;
     
     address public immutable v3Factory;
     address public immutable aaveAddressesProvider;
     
     uint constant DEADLINE_OFFSET = 60;
-    uint16 constant MAX_TITHE_BPS = 9000;
     
     // Hybrid mode threshold ($50M)
     uint256 constant HYBRID_MODE_THRESHOLD = 50_000_000e6; // 50M USDC
@@ -184,13 +201,6 @@ contract FlashSwapV3 is
         uint256 amountOut
     );
     
-    event TitheDistributed(
-        address indexed token,
-        address indexed titheRecipient,
-        uint256 titheAmount,
-        address indexed owner,
-        uint256 ownerAmount
-    );
     
     event HybridModeActivated(
         address indexed token,
@@ -206,29 +216,30 @@ contract FlashSwapV3 is
 
     // --- Constructor ---
     constructor(
+        address payable _owner,
         address _uniswapV3Router,
+        address _slipstreamRouter,
+        address _aerodromeRouter,
         address _sushiRouter,
         address _balancerVault,
         address _dydxSoloMargin,
         address _aavePoolAddress,
         address _aaveAddressesProvider,
-        address _v3Factory,
-        address payable _titheRecipient,
-        uint16 _titheBps
+        address _v3Factory
     ) {
+        require(_owner != address(0), "FSV3:IOA");
         require(_uniswapV3Router != address(0), "FSV3:IUR");
+        require(_slipstreamRouter != address(0), "FSV3:ISLR");
+        require(_aerodromeRouter != address(0), "FSV3:IAR");
         require(_sushiRouter != address(0), "FSV3:ISR");
         require(_balancerVault != address(0), "FSV3:IBV");
         require(_aavePoolAddress != address(0), "FSV3:IAP");
         require(_aaveAddressesProvider != address(0), "FSV3:IAAP");
         require(_v3Factory != address(0), "FSV3:IVF");
-        require(_titheBps <= MAX_TITHE_BPS, "FSV3:TBT");
-        
-        if (_titheBps > 0) {
-            require(_titheRecipient != address(0), "FSV3:ITR");
-        }
 
         swapRouter = ISwapRouter(_uniswapV3Router);
+        slipstreamRouter = ISwapRouter(_slipstreamRouter);
+        aerodromeRouter = IAerodromeRouter(_aerodromeRouter);
         sushiRouter = IUniswapV2Router02(_sushiRouter);
         balancerVault = IBalancerVault(_balancerVault);
         dydxSoloMargin = ISoloMargin(_dydxSoloMargin);
@@ -236,9 +247,7 @@ contract FlashSwapV3 is
         
         v3Factory = _v3Factory;
         aaveAddressesProvider = _aaveAddressesProvider;
-        owner = payable(msg.sender);
-        titheRecipient = _titheRecipient;
-        titheBps = _titheBps;
+        owner = _owner;
     }
 
     // --- Aave Interface Implementations ---
@@ -557,11 +566,24 @@ contract FlashSwapV3 is
                     step.minOut
                 );
             } else if (step.dexType == DEX_TYPE_AERODROME) {
+                // fee field encodes: low bit = stable flag, bits 8+ = factory hint
+                // For simplicity: fee=0 → volatile, fee=1 → stable
+                bool stable = step.fee == 1;
                 currentAmount = _swapAerodrome(
                     step.tokenIn,
                     step.tokenOut,
                     currentAmount,
-                    step.minOut
+                    step.minOut,
+                    stable,
+                    address(0) // factory=0 uses default Aerodrome factory
+                );
+            } else if (step.dexType == DEX_TYPE_SLIPSTREAM) {
+                currentAmount = _swapSlipstream(
+                    step.tokenIn,
+                    step.tokenOut,
+                    currentAmount,
+                    step.minOut,
+                    step.fee  // tickSpacing (1, 100, 200, etc)
                 );
             } else {
                 revert("FSV3:UDT"); // Unsupported DEX type
@@ -627,28 +649,58 @@ contract FlashSwapV3 is
         address tokenIn,
         address tokenOut,
         uint256 amountIn,
-        uint256 minAmountOut
+        uint256 minAmountOut,
+        bool stable,
+        address factory
     ) internal returns (uint256 amountOut) {
-        // Aerodrome uses same interface as Uniswap V2
-        return _swapSushiSwap(tokenIn, tokenOut, amountIn, minAmountOut);
+        IERC20(tokenIn).approve(address(aerodromeRouter), amountIn);
+
+        AeroRoute[] memory routes = new AeroRoute[](1);
+        routes[0] = AeroRoute({
+            from: tokenIn,
+            to: tokenOut,
+            stable: stable,
+            factory: factory
+        });
+
+        uint256[] memory amounts = aerodromeRouter.swapExactTokensForTokens(
+            amountIn,
+            minAmountOut,
+            routes,
+            address(this),
+            block.timestamp + DEADLINE_OFFSET
+        );
+
+        return amounts[amounts.length - 1];
     }
 
-    // --- Profit Distribution ---
+    function _swapSlipstream(
+        address tokenIn,
+        address tokenOut,
+        uint256 amountIn,
+        uint256 minAmountOut,
+        uint24 tickSpacing
+    ) internal returns (uint256 amountOut) {
+        IERC20(tokenIn).approve(address(slipstreamRouter), amountIn);
+
+        ISwapRouter.ExactInputSingleParams memory params = ISwapRouter.ExactInputSingleParams({
+            tokenIn: tokenIn,
+            tokenOut: tokenOut,
+            fee: tickSpacing,  // Slipstream uses tickSpacing in the fee field
+            recipient: address(this),
+            deadline: block.timestamp + DEADLINE_OFFSET,
+            amountIn: amountIn,
+            amountOutMinimum: minAmountOut,
+            sqrtPriceLimitX96: 0
+        });
+
+        return slipstreamRouter.exactInputSingle(params);
+    }
+
+    // --- Profit Distribution (100% to owner) ---
     function _distributeProfits(address token, uint256 netProfit) internal {
         if (netProfit == 0) return;
-        
-        uint256 titheAmount = (netProfit * titheBps) / 10000;
-        uint256 ownerAmount = netProfit - titheAmount;
-        
-        if (titheAmount > 0 && titheRecipient != address(0)) {
-            IERC20(token).safeTransfer(titheRecipient, titheAmount);
-        }
-        
-        if (ownerAmount > 0) {
-            IERC20(token).safeTransfer(owner, ownerAmount);
-        }
-        
-        emit TitheDistributed(token, titheRecipient, titheAmount, owner, ownerAmount);
+        IERC20(token).safeTransfer(owner, netProfit);
     }
 
     // --- Uniswap V3 Flash Callback (for compatibility) ---
