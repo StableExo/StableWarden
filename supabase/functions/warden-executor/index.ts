@@ -39,6 +39,12 @@ const QUOTER_V2_ABI = parseAbi([
 const MIN_SQRT_PRICE = 2n ** 40n;
 const AAVE_FLASH_FEE_PCT = 0.0005;
 
+// ── BASE GAS PRICE ORACLE (predeployed at deterministic address on all OP-Stack chains) ─
+// getL1FeeUpperBound(uint256 txSize) returns the L1 data-posting fee upper bound.
+// This is the dominant cost component for small arb txs on Base — often 5-10x the L2 fee.
+const GAS_PRICE_ORACLE   = "0x420000000000000000000000000000000000000F" as `0x${string}`;
+const ARB_CALLDATA_BYTES = 500; // conservative estimate for a flash-loan arb tx
+
 const UNI_V3_FACTORY    = "0x33128a8fC17869897dcE68Ed026d694621f6FDfD" as `0x${string}`;
 const SLIPSTREAM_FACTORY = "0x5e7BB104d84c7CB9B682AaC2F3d509f5F406809A" as `0x${string}`;
 const AERO_FACTORY      = "0x420DD381b31aEf6683db6B902084cB0FFECe40Da" as `0x${string}`;
@@ -224,6 +230,26 @@ const V2_POOL_ABI = parseAbi([
 // V2-style DEX factory ABI (SushiSwap V2, AlienBase) — uses getPair instead of getPool
 const V2_PAIR_FACTORY_ABI = parseAbi(['function getPair(address tokenA, address tokenB) view returns (address pair)']);
 const AERO_ROUTER_ABI = parseAbi(['function getAmountsOut(uint256 amountIn, (address from, address to, bool stable, address factory)[] routes) view returns (uint256[] amounts)']);
+const GAS_PRICE_ORACLE_ABI = parseAbi([
+  'function getL1FeeUpperBound(uint256 unsignedTxSize) view returns (uint256)'
+]);
+
+// ── PER-DEX GAS UNIT ESTIMATES ────────────────────────────────────────────────
+// Ported from TheWarden AdvancedGasEstimator DEFAULT_DEX_CONFIGS (Base mainnet validated).
+// venueA is always UniV3/SushiV3 (120k CL swap). venueB varies by AMM type.
+const DEX_GAS_UNITS: Record<string, number> = {
+  'univ3':        120_000,  // Uniswap V3 / SushiSwap V3 — concentrated liquidity
+  'slipstream':   120_000,  // Aerodrome Slipstream CL — same interface
+  'aero_vamm':    120_000,  // Aerodrome vAMM
+  'aero_samm':    120_000,  // Aerodrome sAMM (stable)
+  'sushi_v2':     100_000,  // SushiSwap V2 — simpler constant-product AMM
+  'alienbase_v2': 100_000,  // AlienBase V2 — same V2 interface
+};
+
+// Total gas for a 2-pool arb = venueA (always UniV3/SushiV3, 120k) + venueB (type-dependent)
+function estimatePairGasUnits(venueBType: VenueBType): bigint {
+  return BigInt(120_000 + (DEX_GAS_UNITS[venueBType] ?? 120_000));
+}
 const WARDEN_ABI = parseAbi([
   'function executeArb(address tokenA, address tokenB, address uniV3Pool, address venueBPool, uint8 venueBType, uint256 amountIn, uint8 direction, uint256 minProfit, bytes32 txRef) external',
   'function executeTriArb(address startToken, address midToken1, address midToken2, address pool1, address pool2, address pool3, uint8 pool1Type, uint8 pool2Type, uint8 pool3Type, uint256 amountIn, uint256 minProfit, bytes32 txRef) external'
@@ -497,7 +523,7 @@ async function batchScanAllTargets(
   supabase: any,
   trade_size_usd: number,
   min_profit_threshold_usd: number,
-  gasCostEth: number,
+  gasPrice: bigint,
   ethPriceRef: { value: number },
 ): Promise<any[]> {
 
@@ -510,6 +536,16 @@ async function batchScanAllTargets(
   // ── Phase 3: Build + execute single price multicall ─────────────────────
   const { contracts, specs, skipped } = buildPriceMulticall(poolCache);
 
+  // Append L1 fee oracle call — rides in the same multicall batch, zero added latency.
+  // getL1FeeUpperBound(500) gives a conservative upper-bound for ~500-byte arb calldata.
+  const l1FeeCallIdx = contracts.length;
+  contracts.push({
+    address: GAS_PRICE_ORACLE,
+    abi: GAS_PRICE_ORACLE_ABI,
+    functionName: 'getL1FeeUpperBound',
+    args: [BigInt(ARB_CALLDATA_BYTES)],
+  });
+
   let mcResults: any[];
   try {
     mcResults = await publicClient.multicall({ contracts, allowFailure: true });
@@ -519,6 +555,11 @@ async function batchScanAllTargets(
     const errMsg = batchErr?.message ?? String(batchErr);
     return TARGETS.map(t => ({ target: t.name, status: 'BATCH_RPC_ERROR', error: errMsg }));
   }
+
+  // Extract L1 fee from oracle call result
+  const l1FeeRes = mcResults[l1FeeCallIdx];
+  const l1FeeWei = (l1FeeRes?.status === 'success') ? (l1FeeRes.result as bigint) : 0n;
+  const l1FeeEth = Number(formatUnits(l1FeeWei, 18));
 
   // ── Phase 4: Parse results + compute spreads ─────────────────────────────
   const parsedPrices = parsePriceResults(mcResults, specs);
@@ -607,7 +648,10 @@ async function batchScanAllTargets(
 
       const tokenBPriceUsd = getTokenBPriceUsd(t, venueAPrice, ethPriceRef.value);
       const grossProfitUsd = trade_size_usd * netSpread;
-      const gasCostUsd     = gasCostEth * ethPriceRef.value;
+      // Per-venue L2 cost (120k for V3/CL, 100k for V2) + shared L1 data-posting fee
+      const pairGasUnits   = estimatePairGasUnits(t.venueBType);
+      const l2GasWei       = gasPrice * pairGasUnits;
+      const gasCostUsd     = Number(formatUnits(l2GasWei + l1FeeWei, 18)) * ethPriceRef.value;
       const netProfit      = grossProfitUsd - gasCostUsd;
       const isProfitable   = netProfit > min_profit_threshold_usd;
 
@@ -909,16 +953,16 @@ serve(async (_req) => {
       publicClient.getGasPrice(),
     ]);
     const { trade_size_usd, min_profit_threshold_usd } = configRes.data;
-    const estimatedGasUnits = 450000n;
+    const estimatedGasUnits = 450000n; // kept for tri-arb (3 hops, higher gas)
     const gasCostEth = Number(formatUnits(gasPrice * estimatedGasUnits, 18));
     const ethPriceRef = { value: 2000 };
     const t1 = Date.now();
 
-    // ── Multicall-batched 2-pool scan (v57 — replaces sequential batchedAll) ──
+    // ── Multicall-batched 2-pool scan (v58 — per-venue gas + L1 oracle) ──────
     const matrixResults = await batchScanAllTargets(
       publicClient, execRpcClient, supabase,
       Number(trade_size_usd), Number(min_profit_threshold_usd),
-      gasCostEth, ethPriceRef,
+      gasPrice, ethPriceRef,
     );
     const t2 = Date.now();
 
@@ -933,7 +977,7 @@ serve(async (_req) => {
     const losingTri       = triResults.filter((r: any) => r.action === 'LOSING_CYCLE');
     const simulated       = triResults.filter((r: any) => r.amount_simulation);
     return new Response(safeJson({
-      version: "v57_multicall3",
+      version: "v58_gas_oracle",
       network: "base", rpc: "coinbase_node",
       quoter_v2: QUOTER_V2_ADDRESS,
       dry_run: DRY_RUN,
@@ -941,6 +985,7 @@ serve(async (_req) => {
       smart_wallet: SMART_WALLET,
       execution_mode: "coinbase_paymaster_4337",
       eth_price_usd: ethPriceRef.value.toFixed(2),
+      gas_price_gwei: Number(formatUnits(gasPrice, 9)).toFixed(6),
       timing_ms: {
         init:          t1 - t0,
         two_pool_scan: t2 - t1,
