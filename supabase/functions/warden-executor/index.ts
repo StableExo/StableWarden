@@ -43,6 +43,9 @@ const UNI_V3_FACTORY    = "0x33128a8fC17869897dcE68Ed026d694621f6FDfD" as `0x${s
 const SLIPSTREAM_FACTORY = "0x5e7BB104d84c7CB9B682AaC2F3d509f5F406809A" as `0x${string}`;
 const AERO_FACTORY      = "0x420DD381b31aEf6683db6B902084cB0FFECe40Da" as `0x${string}`;
 const AERO_ROUTER       = "0xcF77a3Ba9A5CA399B7c97c74d54e5b1Beb874E43" as `0x${string}`;
+const SUSHI_V3_FACTORY  = "0xc35DADB65012eC5796536bD9864eD8773aBc74C4" as `0x${string}`;  // SushiSwap V3 — same getPool(a,b,fee) ABI as UniV3
+const SUSHI_V2_FACTORY  = "0x71524b4f93c58fcbf659783284e38825f0622859" as `0x${string}`;  // SushiSwap V2 — getPair(a,b) ABI
+const ALIENBASE_FACTORY = "0x3e84d913803b02a4a7f027165e8ca42c14c0fde7" as `0x${string}`;  // AlienBase V2  — getPair(a,b) ABI
 const NULL_ADDR         = "0x0000000000000000000000000000000000000000";
 
 const WETH    = "0x4200000000000000000000000000000000000006";
@@ -89,19 +92,23 @@ const DECIMALS: Record<string, number> = {
 
 const stableTokens = [USDC, USDbC, USDT, DAI].map(t => t.toLowerCase());
 
-type VenueBType = 'aero_vamm' | 'aero_samm' | 'slipstream';
+type VenueBType = 'aero_vamm' | 'aero_samm' | 'slipstream' | 'sushi_v2' | 'alienbase_v2';
 type HopType = 'univ3' | 'slipstream' | 'aero_vamm' | 'aero_samm';
 
 const VENUE_B_TYPE_MAP: Record<VenueBType, number> = {
-  'slipstream': 0,
-  'aero_vamm':  1,
-  'aero_samm':  2,
+  'slipstream':   0,
+  'aero_vamm':    1,
+  'aero_samm':    2,
+  'sushi_v2':     3,  // placeholder — contract support pending Balancer flash receiver upgrade
+  'alienbase_v2': 4,  // placeholder — contract support pending Balancer flash receiver upgrade
 };
 
 const VENUE_B_FEE_PCT: Record<VenueBType, number> = {
-  'aero_vamm':  0.002,
-  'aero_samm':  0.0002,
-  'slipstream': 0.0005,
+  'aero_vamm':    0.002,
+  'aero_samm':    0.0002,
+  'slipstream':   0.0005,
+  'sushi_v2':     0.003,   // SushiSwap V2 — 0.3% LP fee
+  'alienbase_v2': 0.002,   // AlienBase     — 0.2% LP fee
 };
 
 const TARGETS: {
@@ -131,6 +138,19 @@ const TARGETS: {
   { name: "KTA-WETH",     tokenA: KTA,     tokenB: WETH,   venueAName: "UniswapV3_1%",     venueAFactory: UNI_V3_FACTORY, venueAParam: 10000, venueBName: "Slipstream_200",    venueBType: 'slipstream', venueBFactory: SLIPSTREAM_FACTORY, venueBParam: 200,  executable: true },
   { name: "TOSHI-WETH",   tokenA: TOSHI,   tokenB: WETH,   venueAName: "UniswapV3_1%",     venueAFactory: UNI_V3_FACTORY, venueAParam: 10000, venueBName: "Slipstream_200",    venueBType: 'slipstream', venueBFactory: SLIPSTREAM_FACTORY, venueBParam: 200,  executable: true },
   { name: "DOGINME-WETH", tokenA: DOGINME, tokenB: WETH,   venueAName: "UniswapV3_1%",     venueAFactory: UNI_V3_FACTORY, venueAParam: 10000, venueBName: "Slipstream_200",    venueBType: 'slipstream', venueBFactory: SLIPSTREAM_FACTORY, venueBParam: 200,  executable: true },
+
+  // ── SUSHISWAP V3 — same getPool/slot0 interface as UniV3, drop-in venueA ──
+  // executable: false until Balancer flash receiver contract deployed
+  { name: "WETH-USDC [SushiV3]",  tokenA: WETH,  tokenB: USDC,  venueAName: "SushiV3_0.05%", venueAFactory: SUSHI_V3_FACTORY, venueAParam: 500,  venueBName: "Aerodrome_vAMM",  venueBType: 'aero_vamm',  executable: false },
+  { name: "cbETH-WETH [SushiV3]", tokenA: cbETH, tokenB: WETH,  venueAName: "SushiV3_0.05%", venueAFactory: SUSHI_V3_FACTORY, venueAParam: 500,  venueBName: "Aerodrome_vAMM",  venueBType: 'aero_vamm',  executable: false },
+  { name: "WETH-cbBTC [SushiV3]", tokenA: WETH,  tokenB: cbBTC, venueAName: "SushiV3_0.3%",  venueAFactory: SUSHI_V3_FACTORY, venueAParam: 3000, venueBName: "Slipstream_100",  venueBType: 'slipstream', venueBFactory: SLIPSTREAM_FACTORY, venueBParam: 100, executable: false },
+
+  // ── SUSHISWAP V2 — getPair factory, getReserves pricing ──
+  { name: "WETH-USDC [SushiV2]",  tokenA: WETH,  tokenB: USDC,  venueAName: "UniswapV3_0.05%", venueAFactory: UNI_V3_FACTORY, venueAParam: 500, venueBName: "SushiSwap_V2",   venueBType: 'sushi_v2',    venueBFactory: SUSHI_V2_FACTORY,  executable: false },
+
+  // ── ALIENBASE V2 — Base-native DEX, strong BRETT liquidity ──
+  { name: "BRETT-WETH [AlienBase]", tokenA: BRETT, tokenB: WETH, venueAName: "UniswapV3_1%",    venueAFactory: UNI_V3_FACTORY, venueAParam: 10000, venueBName: "AlienBase_V2", venueBType: 'alienbase_v2', venueBFactory: ALIENBASE_FACTORY, executable: false },
+  { name: "WETH-USDC [AlienBase]",  tokenA: WETH,  tokenB: USDC, venueAName: "UniswapV3_0.05%", venueAFactory: UNI_V3_FACTORY, venueAParam: 500,   venueBName: "AlienBase_V2", venueBType: 'alienbase_v2', venueBFactory: ALIENBASE_FACTORY, executable: false },
 ];
 
 interface TriHop {
@@ -201,6 +221,8 @@ const V2_POOL_ABI = parseAbi([
   'function getReserves() view returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast)',
   'function token0() view returns (address)'
 ]);
+// V2-style DEX factory ABI (SushiSwap V2, AlienBase) — uses getPair instead of getPool
+const V2_PAIR_FACTORY_ABI = parseAbi(['function getPair(address tokenA, address tokenB) view returns (address pair)']);
 const AERO_ROUTER_ABI = parseAbi(['function getAmountsOut(uint256 amountIn, (address from, address to, bool stable, address factory)[] routes) view returns (uint256[] amounts)']);
 const WARDEN_ABI = parseAbi([
   'function executeArb(address tokenA, address tokenB, address uniV3Pool, address venueBPool, uint8 venueBType, uint256 amountIn, uint8 direction, uint256 minProfit, bytes32 txRef) external',
@@ -424,6 +446,9 @@ async function scanTarget(
     let venueBPoolAddr: string;
     if (target.venueBType === 'slipstream') {
       venueBPoolAddr = await publicClient.readContract({ address: target.venueBFactory!, abi: SLIPSTREAM_FACTORY_ABI, functionName: 'getPool', args: [target.tokenA as `0x${string}`, target.tokenB as `0x${string}`, target.venueBParam!] }) as string;
+    } else if (target.venueBType === 'sushi_v2' || target.venueBType === 'alienbase_v2') {
+      // V2-style DEXes use getPair(tokenA, tokenB) — no fee tier parameter
+      venueBPoolAddr = await publicClient.readContract({ address: target.venueBFactory!, abi: V2_PAIR_FACTORY_ABI, functionName: 'getPair', args: [target.tokenA as `0x${string}`, target.tokenB as `0x${string}`] }) as string;
     } else {
       const isStable = target.venueBType === 'aero_samm';
       venueBPoolAddr = await publicClient.readContract({ address: AERO_FACTORY, abi: AERO_FACTORY_ABI, functionName: 'getPool', args: [target.tokenA as `0x${string}`, target.tokenB as `0x${string}`, isStable] }) as string;
@@ -448,6 +473,13 @@ async function scanTarget(
       const route = [{ from: target.tokenA as `0x${string}`, to: target.tokenB as `0x${string}`, stable: true, factory: AERO_FACTORY }];
       const amounts = await publicClient.readContract({ address: AERO_ROUTER, abi: AERO_ROUTER_ABI, functionName: 'getAmountsOut', args: [amountIn, route] }) as bigint[];
       venueBPrice = Number(amounts[1]) / Number(amountIn) * Math.pow(10, decA - decB);
+    } else if (target.venueBType === 'sushi_v2' || target.venueBType === 'alienbase_v2') {
+      // V2-style DEXes share the same getReserves/token0 ABI as Aerodrome vAMM
+      const [v2Reserves, v2Token0] = await Promise.all([
+        publicClient.readContract({ address: venueBPoolAddr as `0x${string}`, abi: V2_POOL_ABI, functionName: 'getReserves' }),
+        publicClient.readContract({ address: venueBPoolAddr as `0x${string}`, abi: V2_POOL_ABI, functionName: 'token0' }),
+      ]);
+      venueBPrice = calcAeroPrice(v2Reserves[0], v2Reserves[1], v2Token0 as string, target.tokenA, decA, decB);
     } else {
       const [aeroReserves, aeroToken0] = await Promise.all([
         publicClient.readContract({ address: venueBPoolAddr as `0x${string}`, abi: V2_POOL_ABI, functionName: 'getReserves' }),
