@@ -79,14 +79,6 @@ interface IFlashLoanReceiver {
     function pool() external view returns (address);
 }
 
-// --- Uniswap V3 Swap Callback Interface ---
-interface IUniswapV3SwapCallback {
-    function uniswapV3SwapCallback(
-        int256 amount0Delta,
-        int256 amount1Delta,
-        bytes calldata data
-    ) external;
-}
 
 /**
  * @title FlashSwapV3
@@ -237,6 +229,7 @@ contract FlashSwapV3 is
 
     // --- Constructor ---
     constructor(
+        address _initialOwner,          // Explicit owner — pass smart wallet address (avoids CREATE2 msg.sender issue)
         address _uniswapV3Router,
         address _sushiRouter,
         address _balancerVault,
@@ -249,6 +242,7 @@ contract FlashSwapV3 is
         address _pancakeV3Router,       // NEW: PancakeSwap V3 SwapRouter on Base: 0x1b81D678ffb9C0263b24A97847620C99d213eB14
         address _alienBaseV2Router      // NEW: AlienBase V2 Router on Base:       0x8c1A3cF8f83074169FE5D7aD50B978e1cD6b37c7
     ) {
+        require(_initialOwner       != address(0), "FSV3:IOW");
         require(_uniswapV3Router    != address(0), "FSV3:IUR");
         require(_sushiRouter        != address(0), "FSV3:ISR");
         require(_balancerVault      != address(0), "FSV3:IBV");
@@ -273,7 +267,7 @@ contract FlashSwapV3 is
         
         v3Factory            = _v3Factory;
         aaveAddressesProvider = _aaveAddressesProvider;
-        owner            = payable(msg.sender);
+        owner            = payable(_initialOwner);
         titheRecipient   = _titheRecipient;
         titheBps         = _titheBps;
     }
