@@ -14,9 +14,14 @@ pragma abicoder v2;
  * - Automatic source optimization based on token/amount/opportunity size
  * - Enhanced gas optimization with inline assembly
  * 
- * Version: 5.1.0 (FlashSwapV3 — venues: PancakeSwap V3, SushiSwap V3, AlienBase V2)
+ * Version: 5.1.1 (FlashSwapV3 — venues: PancakeSwap V3, SushiSwap V3, AlienBase V2)
  * Network: Base, Ethereum, Arbitrum, Optimism
  * Tithe System: 70% US debt reduction, 30% operator share
+ *
+ * Changelog v5.1.1:
+ * - FIX: _swapSushiV3 amountSpecified sign — negate when zeroForOne=false for exact-input of token1
+ *   Uniswap V3 pool.swap() uses sign of amountSpecified to distinguish exact-input vs exact-output.
+ *   Passing +amountIn when zeroForOne=false caused exact-output semantics, wrong token flow, revert.
  *
  * Changelog v5.1.0:
  * - DEX_TYPE_SUSHISWAP_V3 (7): direct Uniswap V3-compatible pool swap + uniswapV3SwapCallback
@@ -111,9 +116,9 @@ contract FlashSwapV3 is
     uint8 constant DEX_TYPE_BALANCER      = 4;
     uint8 constant DEX_TYPE_CURVE         = 5;
     uint8 constant DEX_TYPE_UNISWAP_V4    = 6;
-    uint8 constant DEX_TYPE_SUSHISWAP_V3  = 7;  // NEW: SushiSwap V3 (direct pool swap)
-    uint8 constant DEX_TYPE_PANCAKESWAP_V3 = 8; // NEW: PancakeSwap V3 SwapRouter
-    uint8 constant DEX_TYPE_ALIENBASE_V2  = 9;  // NEW: AlienBase V2 Router
+    uint8 constant DEX_TYPE_SUSHISWAP_V3  = 7;  // SushiSwap V3 (direct pool swap)
+    uint8 constant DEX_TYPE_PANCAKESWAP_V3 = 8; // PancakeSwap V3 SwapRouter
+    uint8 constant DEX_TYPE_ALIENBASE_V2  = 9;  // AlienBase V2 Router
 
     // --- Sqrt Price Limits for direct V3 pool swaps ---
     uint160 internal constant MIN_SQRT_RATIO = 4295128739;
@@ -125,8 +130,8 @@ contract FlashSwapV3 is
     IBalancerVault     public immutable balancerVault;
     ISoloMargin        public immutable dydxSoloMargin;
     IPool              public immutable aavePool;
-    ISwapRouter        public immutable pancakeV3Router;    // NEW: PancakeSwap V3
-    IUniswapV2Router02 public immutable alienBaseV2Router;  // NEW: AlienBase V2
+    ISwapRouter        public immutable pancakeV3Router;    // PancakeSwap V3
+    IUniswapV2Router02 public immutable alienBaseV2Router;  // AlienBase V2
 
     address payable public immutable owner;
     address payable public immutable titheRecipient;
@@ -239,8 +244,8 @@ contract FlashSwapV3 is
         address _v3Factory,
         address payable _titheRecipient,
         uint16  _titheBps,
-        address _pancakeV3Router,       // NEW: PancakeSwap V3 SwapRouter on Base: 0x1b81D678ffb9C0263b24A97847620C99d213eB14
-        address _alienBaseV2Router      // NEW: AlienBase V2 Router on Base:       0x8c1A3cF8f83074169FE5D7aD50B978e1cD6b37c7
+        address _pancakeV3Router,       // PancakeSwap V3 SwapRouter on Base: 0x1b81D678ffb9C0263b24A97847620C99d213eB14
+        address _alienBaseV2Router      // AlienBase V2 Router on Base:       0x8c1A3cF8f83074169FE5D7aD50B978e1cD6b37c7
     ) {
         require(_initialOwner       != address(0), "FSV3:IOW");
         require(_uniswapV3Router    != address(0), "FSV3:IUR");
@@ -576,6 +581,12 @@ contract FlashSwapV3 is
      * @dev    step.pool must be set to the correct SushiSwap V3 pool address.
      *         Uses _pendingCallbackPool as a reentrancy-safe callback guard.
      *         SushiSwap V3 Factory (Base): 0xc35DADB65012eC5796536bD9864eD8773aBc74C4
+     *
+     * IMPORTANT — amountSpecified sign convention (Uniswap V3 pool.swap semantics):
+     *   zeroForOne=true,  amountSpecified > 0 → exact input  of token0 ✅
+     *   zeroForOne=false, amountSpecified < 0 → exact input  of token1 ✅
+     *   zeroForOne=false, amountSpecified > 0 → exact OUTPUT of token1 ❌ (wrong direction)
+     * We always want exact-input, so negate amountSpecified when zeroForOne=false.
      */
     function _swapSushiV3(
         address poolAddr,
@@ -588,13 +599,19 @@ contract FlashSwapV3 is
         
         bool zeroForOne = tokenIn < tokenOut;
 
+        // FIX v5.1.1: negate amountSpecified when zeroForOne=false.
+        // Uniswap V3 pool.swap() uses the sign to select exact-input vs exact-output.
+        // Positive amountSpecified when zeroForOne=false means exact-output of token1,
+        // which reverses token flow and causes the callback to pay the wrong token.
+        int256 amountSpecified = zeroForOne ? int256(amountIn) : -int256(amountIn);
+
         // Set callback guard before entering the pool
         _pendingCallbackPool = poolAddr;
 
         (int256 amount0, int256 amount1) = IUniswapV3Pool(poolAddr).swap(
             address(this),
             zeroForOne,
-            int256(amountIn),
+            amountSpecified,
             zeroForOne ? MIN_SQRT_RATIO + 1 : MAX_SQRT_RATIO - 1,
             abi.encode(tokenIn)
         );
