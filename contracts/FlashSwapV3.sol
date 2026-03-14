@@ -14,7 +14,7 @@ pragma abicoder v2;
  * - Automatic source optimization based on token/amount/opportunity size
  * - Enhanced gas optimization with inline assembly
  * 
- * Version: 5.1.0 (FlashSwapV3 — venues: PancakeSwap V3, SushiSwap V3, AlienBase V2)
+ * Version: 5.1.2 (FlashSwapV3 — fix: remove `deadline` from _swapUniswapV3 + _swapPancakeV3)
  * Network: Base, Ethereum, Arbitrum, Optimism
  * Tithe System: 70% US debt reduction, 30% operator share
  *
@@ -80,6 +80,24 @@ interface IFlashLoanReceiver {
 }
 
 
+
+// --- SwapRouter V3 No-Deadline Interface ---
+// Uniswap V3 SwapRouter02 on Base (0x2626664c2603336e57b271c5c0b26f421741e481)
+// and PancakeSwap V3 Router on Base (0x1b81D678ffb9C0263b24A97847620C99d213eB14)
+// both use ExactInputSingleParams WITHOUT `deadline`.
+interface ISwapRouterV3 {
+    struct ExactInputSingleParams {
+        address tokenIn;
+        address tokenOut;
+        uint24  fee;
+        address recipient;
+        uint256 amountIn;
+        uint256 amountOutMinimum;
+        uint160 sqrtPriceLimitX96;
+    }
+    function exactInputSingle(ExactInputSingleParams calldata params) external payable returns (uint256 amountOut);
+}
+
 /**
  * @title FlashSwapV3
  * @notice Multi-source flash loan arbitrage with hybrid execution support
@@ -120,12 +138,12 @@ contract FlashSwapV3 is
     uint160 internal constant MAX_SQRT_RATIO = 1461446703485210103287273052203988822378723970342;
 
     // --- State Variables ---
-    ISwapRouter        public immutable swapRouter;         // Uniswap V3
+    ISwapRouterV3      public immutable swapRouter;         // Uniswap V3 (SwapRouter02 — no deadline)
     IUniswapV2Router02 public immutable sushiRouter;        // SushiSwap V2
     IBalancerVault     public immutable balancerVault;
     ISoloMargin        public immutable dydxSoloMargin;
     IPool              public immutable aavePool;
-    ISwapRouter        public immutable pancakeV3Router;    // NEW: PancakeSwap V3
+    ISwapRouterV3      public immutable pancakeV3Router;    // PancakeSwap V3 (no deadline)
     IUniswapV2Router02 public immutable alienBaseV2Router;  // NEW: AlienBase V2
 
     address payable public immutable owner;
@@ -257,12 +275,12 @@ contract FlashSwapV3 is
             require(_titheRecipient != address(0), "FSV3:ITR");
         }
 
-        swapRouter       = ISwapRouter(_uniswapV3Router);
+        swapRouter       = ISwapRouterV3(_uniswapV3Router);
         sushiRouter      = IUniswapV2Router02(_sushiRouter);
         balancerVault    = IBalancerVault(_balancerVault);
         dydxSoloMargin   = ISoloMargin(_dydxSoloMargin);
         aavePool         = IPool(_aavePoolAddress);
-        pancakeV3Router  = ISwapRouter(_pancakeV3Router);
+        pancakeV3Router  = ISwapRouterV3(_pancakeV3Router);
         alienBaseV2Router = IUniswapV2Router02(_alienBaseV2Router);
         
         v3Factory            = _v3Factory;
@@ -522,12 +540,11 @@ contract FlashSwapV3 is
     ) internal returns (uint256 amountOut) {
         IERC20(tokenIn).approve(address(swapRouter), amountIn);
         
-        ISwapRouter.ExactInputSingleParams memory params = ISwapRouter.ExactInputSingleParams({
+        ISwapRouterV3.ExactInputSingleParams memory params = ISwapRouterV3.ExactInputSingleParams({
             tokenIn:           tokenIn,
             tokenOut:          tokenOut,
             fee:               fee,
             recipient:         address(this),
-            deadline:          block.timestamp + DEADLINE_OFFSET,
             amountIn:          amountIn,
             amountOutMinimum:  minAmountOut,
             sqrtPriceLimitX96: 0
@@ -644,12 +661,11 @@ contract FlashSwapV3 is
     ) internal returns (uint256 amountOut) {
         IERC20(tokenIn).approve(address(pancakeV3Router), amountIn);
 
-        ISwapRouter.ExactInputSingleParams memory params = ISwapRouter.ExactInputSingleParams({
+        ISwapRouterV3.ExactInputSingleParams memory params = ISwapRouterV3.ExactInputSingleParams({
             tokenIn:           tokenIn,
             tokenOut:          tokenOut,
             fee:               fee,
             recipient:         address(this),
-            deadline:          block.timestamp + DEADLINE_OFFSET,
             amountIn:          amountIn,
             amountOutMinimum:  minAmountOut,
             sqrtPriceLimitX96: 0
