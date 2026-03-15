@@ -393,7 +393,7 @@ async function batchScanAllTargets(publicClient: any, execRpcClient: any, supaba
       const gasCostUsd     = Number(formatUnits(l2GasWei + l1FeeWei, 18)) * ethPriceRef.value;
       const netProfit      = grossProfitUsd - gasCostUsd;
       const isProfitable   = netProfit > min_profit_threshold_usd;
-      let action = 'HOLD'; let simulationResult: string | null = null; let executionHash: string | null = null; let executionError: string | null = null; let rejectReason: string | null = null;
+      let action = 'HOLD'; let executionHash: string | null = null; let executionError: string | null = null; let rejectReason: string | null = null;
       if (!isProfitable) rejectReason = `net_profit $${netProfit.toFixed(4)} < threshold $${min_profit_threshold_usd}`;
       if (isProfitable) {
         if (t.executable && BOT_PRIVATE_KEY) {
@@ -433,10 +433,8 @@ async function batchScanAllTargets(publicClient: any, execRpcClient: any, supaba
           const path = buildTwoStepPath(t, direction, amountInWei, minFinalAmount, venueAPoolAddr, venueBPoolAddr, useTokenABorrow);
           const callArgs = { address: CONTRACT_ADDR, abi: WARDEN_ABI, functionName: 'executeArbitrage' as const, args: [effectiveBorrowToken as `0x${string}`, amountInWei, path] as const };
           try {
-            // Initialize smart account if needed for simulation
-            if (!_smartWalletAddr) await getBundlerClient(publicClient);
-            await execRpcClient.simulateContract({ ...callArgs, account: _smartWalletAddr! });
-            simulationResult = 'SIMULATION_SUCCESS';
+            // NOTE: simulateContract removed — it always fails for AA smart wallets (simulates as EOA, not via entry point).
+            // FSV3:IFR contract guard reverts the entire flash loan if profit < borrow+fee. Paymaster charges gas only on success.
             if (DRY_RUN) {
               action = 'DRY_RUN_SUCCESS';
               await supabase.from('arbitrage_logs').insert({ network: 'base', source_a: t.venueAName, source_b: t.venueBName, token_pair: t.name, spread_pct: spreadRaw*100, gross_profit_usd: grossProfitUsd, gas_cost_usd: gasCostUsd, net_profit_usd: netProfit, direction: dirStr, status: 'DRY_RUN_SUCCESS', tx_hash: null });
@@ -446,19 +444,18 @@ async function batchScanAllTargets(publicClient: any, execRpcClient: any, supaba
               executionHash = txHash;
               await supabase.from('arbitrage_logs').insert({ network: 'base', source_a: t.venueAName, source_b: t.venueBName, token_pair: t.name, spread_pct: spreadRaw*100, gross_profit_usd: grossProfitUsd, gas_cost_usd: gasCostUsd, net_profit_usd: netProfit, direction: dirStr, status: 'EXECUTED', tx_hash: txHash });
             }
-          } catch (simErr: any) {
-            simulationResult = 'SIMULATION_FAILED';
-            const errMsg = simErr?.shortMessage ?? simErr?.message ?? String(simErr);
-            executionError = errMsg; rejectReason = `sim_failed: ${errMsg}`;
-            action = DRY_RUN ? 'DRY_RUN_SIM_FAILED' : 'SIMULATE_FAILED';
-            await supabase.from('arbitrage_logs').insert({ network: 'base', source_a: t.venueAName, source_b: t.venueBName, token_pair: t.name, spread_pct: spreadRaw*100, gross_profit_usd: grossProfitUsd, gas_cost_usd: gasCostUsd, net_profit_usd: netProfit, direction: dirStr, status: 'SIMULATION_FAILED', tx_hash: null });
+          } catch (execErr: any) {
+            const errMsg = execErr?.shortMessage ?? execErr?.message ?? String(execErr);
+            executionError = errMsg; rejectReason = `exec_failed: ${errMsg}`;
+            action = DRY_RUN ? 'DRY_RUN_FAILED' : 'EXECUTE_FAILED';
+            await supabase.from('arbitrage_logs').insert({ network: 'base', source_a: t.venueAName, source_b: t.venueBName, token_pair: t.name, spread_pct: spreadRaw*100, gross_profit_usd: grossProfitUsd, gas_cost_usd: gasCostUsd, net_profit_usd: netProfit, direction: dirStr, status: 'EXECUTE_FAILED', tx_hash: null });
           }
         } else {
           action = 'OPPORTUNITY_DETECTED';
           await supabase.from('arbitrage_logs').insert({ network: 'base', source_a: t.venueAName, source_b: t.venueBName, token_pair: t.name, spread_pct: spreadRaw*100, gross_profit_usd: grossProfitUsd, gas_cost_usd: gasCostUsd, net_profit_usd: netProfit, direction: dirStr, status: 'OPPORTUNITY_DETECTED', tx_hash: null });
         }
       }
-      results.push({ target: t.name, venueA: t.venueAName, venueB: t.venueBName, venueA_price: `$${venueAPrice.toFixed(6)}`, venueB_price: `$${venueBPrice.toFixed(6)}`, spread_gross: `${(spreadRaw*100).toFixed(4)}%`, total_fees: `${(totalFeePct*100).toFixed(4)}%`, net_spread: `${(netSpread*100).toFixed(4)}%`, direction: dirStr, net_profit: `$${netProfit.toFixed(4)}`, isProfitable, executable: t.executable, dry_run: DRY_RUN, action, ...(rejectReason && { reject_reason: rejectReason }), ...(simulationResult && { simulation: simulationResult }), ...(executionHash && { tx_hash: executionHash }), ...(executionError && { error: executionError }) });
+      results.push({ target: t.name, venueA: t.venueAName, venueB: t.venueBName, venueA_price: `$${venueAPrice.toFixed(6)}`, venueB_price: `$${venueBPrice.toFixed(6)}`, spread_gross: `${(spreadRaw*100).toFixed(4)}%`, total_fees: `${(totalFeePct*100).toFixed(4)}%`, net_spread: `${(netSpread*100).toFixed(4)}%`, direction: dirStr, net_profit: `$${netProfit.toFixed(4)}`, isProfitable, executable: t.executable, dry_run: DRY_RUN, action, ...(rejectReason && { reject_reason: rejectReason }), ...(executionHash && { tx_hash: executionHash }), ...(executionError && { error: executionError }) });
     } catch (err: any) { results.push({ target: t.name, status: 'ERROR', error: String(err) }); }
   }
   return results;
@@ -483,7 +480,7 @@ serve(async (_req) => {
     const feeKilled       = matrixResults.filter((r: any) => r.action === 'SKIPPED_FEES_EXCEED_SPREAD');
     const executed        = matrixResults.filter((r: any) => r.tx_hash);
     return new Response(safeJson({
-      version: "v74_clean",
+      version: "v75_no_sim_gate",
       network: "base",
       rpc: "alchemy_pending",
       dry_run: DRY_RUN,
@@ -493,7 +490,8 @@ serve(async (_req) => {
       gas_padding: "+30%_callGasLimit",
       eth_price_usd: ethPriceRef.value.toFixed(2),
       gas_price_gwei: Number(formatUnits(gasPrice, 9)).toFixed(6),
-      dex_note: "Aerodrome/Slipstream/AlienBase removed — contract stubs them (FSV3:AERO_NS). Active: UniV3 + PancakeV3 + SushiV3 + SushiV2",
+      sim_gate: "REMOVED — FSV3:IFR contract guard protects against losses. simulateContract(smartWallet) was always failing (AA≠EOA).",
+      dex_note: "Active: UniV3 + PancakeV3 + SushiV3 + SushiV2. Aerodrome pending Phase 3.",
       timing_ms: { init: t1 - t0, two_pool_scan: t2 - t1, total: t2 - t0 },
       summary: {
         total_pairs: TARGETS.length,
