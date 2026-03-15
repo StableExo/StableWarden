@@ -9,44 +9,8 @@ interface TimelineProps {
 
 const FIRST_LIGHT_PR = 211;
 
-/* ── helpers ─────────────────────────────────────────────────────── */
-
-function isPostFirstLight(entry: TimelineEntry): boolean {
-  return (entry.prNumber ?? 0) >= FIRST_LIGHT_PR;
-}
-
-/** Monday-based week key: returns the Monday date for the week containing `d`. */
-function getMonday(d: Date): Date {
-  const copy = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
-  const day = copy.getUTCDay(); // 0=Sun
-  const diff = day === 0 ? -6 : 1 - day;
-  copy.setUTCDate(copy.getUTCDate() + diff);
-  return copy;
-}
-
-function monthKey(d: Date): string {
-  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
-}
-
-function weekKey(d: Date): string {
-  const mon = getMonday(d);
-  return `${mon.getUTCFullYear()}-${String(mon.getUTCMonth() + 1).padStart(2, '0')}-${String(mon.getUTCDate()).padStart(2, '0')}`;
-}
-
-function dayKey(d: Date): string {
-  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
-}
-
-function formatMonthLabel(d: Date): string {
-  return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' }).toUpperCase();
-}
-
-function formatWeekLabel(monday: Date): string {
-  const mon = monday.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
-  return `Week of ${mon}`;
-}
-
-function formatDayLabel(d: Date): string {
+function getDayKey(dateStr: string): string {
+  const d = new Date(dateStr);
   return d.toLocaleDateString('en-US', {
     weekday: 'long',
     month: 'long',

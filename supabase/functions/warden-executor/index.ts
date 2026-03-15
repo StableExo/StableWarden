@@ -1,43 +1,58 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import {
   createPublicClient,
-  createWalletClient,
   http,
   parseAbi,
   formatUnits,
   parseUnits,
+  encodeFunctionData,
 } from "npm:viem"
 import { base } from "npm:viem/chains"
 import { privateKeyToAccount } from "npm:viem/accounts"
+import { toCoinbaseSmartAccount, createBundlerClient } from "npm:viem/account-abstraction"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 // BigInt-safe JSON serializer
 const safeJson = (obj: any) =>
   JSON.stringify(obj, (_k, v) => (typeof v === 'bigint' ? v.toString() : v), 2);
 
-// ── Config ────────────────────────────────────────────────────────────────────
-const BASE_RPC_URL              = Deno.env.get("BASE_RPC_URL") ?? "https://base-mainnet.g.alchemy.com/v2/3wG3PLWyPu2DliGQLVa8G";
+// ── RPC ENDPOINTS ─────────────────────────────────────────────────────────────
+const COINBASE_RPC_URL = "https://api.developer.coinbase.com/rpc/v1/base/EeBuC9EkcVpsMwYSiiC1TUKwFTWJVzD1";
+const FLASHBLOCKS_RPC_URL = COINBASE_RPC_URL;
+const BASE_RPC_URL = Deno.env.get("BASE_RPC_URL") ?? COINBASE_RPC_URL;
+
 const SUPABASE_URL              = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const BOT_PRIVATE_KEY           = Deno.env.get("BOT_PRIVATE_KEY");
 
-// ── V2 CONTRACT ──────────────────────────────────────────────────────────────
-// Update this after deploying WardenExecutorV2
-const CONTRACT_ADDR             = "0xc5DB2D008D6c99feCf2B6CBA7b7f8aE84e3A3d87" as `0x${string}`;
-
-// ── DRY RUN MODE ─────────────────────────────────────────────────────────────
-// When true: simulates contract calls but never submits on-chain transactions.
-// Set to false only when ready for live execution.
+// ── V3 CONTRACT (owner = smart wallet) ──────────────────────────────────────
+const CONTRACT_ADDR = "0xA96B8c9577c2471044638772672fa1646643a9C8" as `0x${string}`;
+const SMART_WALLET  = "0x1272245579df2E988e168E1092E96F301c22DBC9" as `0x${string}`;
 const DRY_RUN = true;
 
-const MIN_SPREAD_THRESHOLD = 0.005;
-const MIN_SQRT_PRICE = 2n ** 40n;
+// ── QUOTER V2 — amount-aware simulation (official Base deployment) ─────────────
+const QUOTER_V2_ADDRESS = '0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a' as `0x${string}`;
+const QUOTER_V2_ABI = parseAbi([
+  'function quoteExactInputSingle((address tokenIn, address tokenOut, uint256 amountIn, uint24 fee, uint160 sqrtPriceLimitX96) params) returns (uint256 amountOut, uint160 sqrtPriceX96After, uint32 initializedTicksCrossed, uint256 gasEstimate)'
+]);
 
-const UNI_V3_FACTORY      = "0x33128a8fC17869897dcE68Ed026d694621f6FDfD" as `0x${string}`;
-const SLIPSTREAM_FACTORY   = "0x5e7BB104d84c7CB9B682AaC2F3d509f5F406809A" as `0x${string}`;
-const AERO_FACTORY         = "0x420DD381b31aEf6683db6B902084cB0FFECe40Da" as `0x${string}`;
-const AERO_ROUTER          = "0xcF77a3Ba9A5CA399B7c97c74d54e5b1Beb874E43" as `0x${string}`;
-const NULL_ADDR            = "0x0000000000000000000000000000000000000000";
+const MIN_SQRT_PRICE = 2n ** 40n;
+const AAVE_FLASH_FEE_PCT = 0.0005;
+
+// ── BASE GAS PRICE ORACLE (predeployed at deterministic address on all OP-Stack chains) ─
+// getL1FeeUpperBound(uint256 txSize) returns the L1 data-posting fee upper bound.
+// This is the dominant cost component for small arb txs on Base — often 5-10x the L2 fee.
+const GAS_PRICE_ORACLE   = "0x420000000000000000000000000000000000000F" as `0x${string}`;
+const ARB_CALLDATA_BYTES = 500; // conservative estimate for a flash-loan arb tx
+
+const UNI_V3_FACTORY    = "0x33128a8fC17869897dcE68Ed026d694621f6FDfD" as `0x${string}`;
+const SLIPSTREAM_FACTORY = "0x5e7BB104d84c7CB9B682AaC2F3d509f5F406809A" as `0x${string}`;
+const AERO_FACTORY      = "0x420DD381b31aEf6683db6B902084cB0FFECe40Da" as `0x${string}`;
+const AERO_ROUTER       = "0xcF77a3Ba9A5CA399B7c97c74d54e5b1Beb874E43" as `0x${string}`;
+const SUSHI_V3_FACTORY  = "0xc35DADB65012eC5796536bD9864eD8773aBc74C4" as `0x${string}`;  // SushiSwap V3 — same getPool(a,b,fee) ABI as UniV3
+const SUSHI_V2_FACTORY  = "0x71524b4f93c58fcbf659783284e38825f0622859" as `0x${string}`;  // SushiSwap V2 — getPair(a,b) ABI
+const ALIENBASE_FACTORY = "0x3e84d913803b02a4a7f027165e8ca42c14c0fde7" as `0x${string}`;  // AlienBase V2  — getPair(a,b) ABI
+const NULL_ADDR         = "0x0000000000000000000000000000000000000000";
 
 const WETH    = "0x4200000000000000000000000000000000000006";
 const USDC    = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
@@ -83,13 +98,23 @@ const DECIMALS: Record<string, number> = {
 
 const stableTokens = [USDC, USDbC, USDT, DAI].map(t => t.toLowerCase());
 
-type VenueBType = 'aero_vamm' | 'aero_samm' | 'slipstream';
+type VenueBType = 'aero_vamm' | 'aero_samm' | 'slipstream' | 'sushi_v2' | 'alienbase_v2';
+type HopType = 'univ3' | 'slipstream' | 'aero_vamm' | 'aero_samm';
 
-// Map string venue type to V2 contract uint8
 const VENUE_B_TYPE_MAP: Record<VenueBType, number> = {
-  'slipstream': 0,
-  'aero_vamm':  1,
-  'aero_samm':  2,
+  'slipstream':   0,
+  'aero_vamm':    1,
+  'aero_samm':    2,
+  'sushi_v2':     3,  // placeholder — contract support pending Balancer flash receiver upgrade
+  'alienbase_v2': 4,  // placeholder — contract support pending Balancer flash receiver upgrade
+};
+
+const VENUE_B_FEE_PCT: Record<VenueBType, number> = {
+  'aero_vamm':    0.002,
+  'aero_samm':    0.0002,
+  'slipstream':   0.0005,
+  'sushi_v2':     0.003,   // SushiSwap V2 — 0.3% LP fee
+  'alienbase_v2': 0.002,   // AlienBase     — 0.2% LP fee
 };
 
 const TARGETS: {
@@ -99,46 +124,90 @@ const TARGETS: {
   venueBFactory?: `0x${string}`; venueBParam?: number;
   executable: boolean;
 }[] = [
-  // 1. THE BENCHMARK
-  { name: "WETH-USDC", tokenA: WETH, tokenB: USDC, venueAName: "UniswapV3_0.05%", venueAFactory: UNI_V3_FACTORY, venueAParam: 500, venueBName: "Aerodrome_vAMM", venueBType: 'aero_vamm', executable: true },
-  // 2. THE CORRELATION
-  { name: "cbETH-WETH", tokenA: cbETH, tokenB: WETH, venueAName: "UniswapV3_0.01%", venueAFactory: UNI_V3_FACTORY, venueAParam: 100, venueBName: "Aerodrome_vAMM", venueBType: 'aero_vamm', executable: true },
-  // 3. THE PEG
-  { name: "USDbC-USDC", tokenA: USDbC, tokenB: USDC, venueAName: "UniswapV3_0.01%", venueAFactory: UNI_V3_FACTORY, venueAParam: 100, venueBName: "Aerodrome_sAMM", venueBType: 'aero_samm', executable: true },
-  // 4. THE SNIPER
-  { name: "WETH-cbBTC", tokenA: WETH, tokenB: cbBTC, venueAName: "UniswapV3_0.3%", venueAFactory: UNI_V3_FACTORY, venueAParam: 3000, venueBName: "Slipstream_100", venueBType: 'slipstream', venueBFactory: SLIPSTREAM_FACTORY, venueBParam: 100, executable: true },
-  // 5. THE LST PEG
-  { name: "wstETH-WETH", tokenA: wstETH, tokenB: WETH, venueAName: "UniswapV3_0.01%", venueAFactory: UNI_V3_FACTORY, venueAParam: 100, venueBName: "Slipstream_1", venueBType: 'slipstream', venueBFactory: SLIPSTREAM_FACTORY, venueBParam: 1, executable: true },
-  // 6. THE DOLLAR WARS
-  { name: "USDC-USDT", tokenA: USDC, tokenB: USDT, venueAName: "UniswapV3_0.01%", venueAFactory: UNI_V3_FACTORY, venueAParam: 100, venueBName: "Slipstream_1", venueBType: 'slipstream', venueBFactory: SLIPSTREAM_FACTORY, venueBParam: 1, executable: true },
-  // 7. THE RESTAKING PEG
-  { name: "weETH-WETH", tokenA: weETH, tokenB: WETH, venueAName: "UniswapV3_0.01%", venueAFactory: UNI_V3_FACTORY, venueAParam: 100, venueBName: "Slipstream_1", venueBType: 'slipstream', venueBFactory: SLIPSTREAM_FACTORY, venueBParam: 1, executable: true },
-  // 8. THE NATIVE — WETH/AERO
-  { name: "WETH-AERO", tokenA: WETH, tokenB: AERO, venueAName: "UniswapV3_0.3%", venueAFactory: UNI_V3_FACTORY, venueAParam: 3000, venueBName: "Slipstream_200", venueBType: 'slipstream', venueBFactory: SLIPSTREAM_FACTORY, venueBParam: 200, executable: true },
-  // 9. THE DAI SPREAD
-  { name: "DAI-USDC", tokenA: DAI, tokenB: USDC, venueAName: "UniswapV3_0.01%", venueAFactory: UNI_V3_FACTORY, venueAParam: 100, venueBName: "Aerodrome_sAMM", venueBType: 'aero_samm', executable: true },
-  // 10. THE BTC-DOLLAR
-  { name: "cbBTC-USDC", tokenA: cbBTC, tokenB: USDC, venueAName: "UniswapV3_0.01%", venueAFactory: UNI_V3_FACTORY, venueAParam: 100, venueBName: "Slipstream_1", venueBType: 'slipstream', venueBFactory: SLIPSTREAM_FACTORY, venueBParam: 1, executable: true },
-  // 11. THE VIRTUALS
-  { name: "VIRTUAL-WETH", tokenA: VIRTUAL, tokenB: WETH, venueAName: "UniswapV3_0.05%", venueAFactory: UNI_V3_FACTORY, venueAParam: 500, venueBName: "Slipstream_100", venueBType: 'slipstream', venueBFactory: SLIPSTREAM_FACTORY, venueBParam: 100, executable: true },
-  // 12. THE TETHER
-  { name: "WETH-USDT", tokenA: WETH, tokenB: USDT, venueAName: "UniswapV3_0.05%", venueAFactory: UNI_V3_FACTORY, venueAParam: 500, venueBName: "Slipstream_100", venueBType: 'slipstream', venueBFactory: SLIPSTREAM_FACTORY, venueBParam: 100, executable: true },
-  // 13. THE MEME KING — BRETT/WETH
-  { name: "BRETT-WETH", tokenA: BRETT, tokenB: WETH, venueAName: "UniswapV3_1%", venueAFactory: UNI_V3_FACTORY, venueAParam: 10000, venueBName: "Slipstream_200", venueBType: 'slipstream', venueBFactory: SLIPSTREAM_FACTORY, venueBParam: 200, executable: true },
-  // 14. THE LENDER — MORPHO/WETH
-  { name: "MORPHO-WETH", tokenA: MORPHO, tokenB: WETH, venueAName: "UniswapV3_0.3%", venueAFactory: UNI_V3_FACTORY, venueAParam: 3000, venueBName: "Slipstream_200", venueBType: 'slipstream', venueBFactory: SLIPSTREAM_FACTORY, venueBParam: 200, executable: true },
-  // 15. THE BANKER — BNKR/WETH
-  { name: "BNKR-WETH", tokenA: BNKR, tokenB: WETH, venueAName: "UniswapV3_1%", venueAFactory: UNI_V3_FACTORY, venueAParam: 10000, venueBName: "Slipstream_200", venueBType: 'slipstream', venueBFactory: SLIPSTREAM_FACTORY, venueBParam: 200, executable: true },
-  // 16. THE LAUNCHPAD — CLANKER/WETH
-  { name: "CLANKER-WETH", tokenA: CLANKER, tokenB: WETH, venueAName: "UniswapV3_1%", venueAFactory: UNI_V3_FACTORY, venueAParam: 10000, venueBName: "Slipstream_200", venueBType: 'slipstream', venueBFactory: SLIPSTREAM_FACTORY, venueBParam: 200, executable: true },
-  // 17. THE AI ENGINE — VVV/WETH, Venice Token
-  { name: "VVV-WETH", tokenA: VVV, tokenB: WETH, venueAName: "UniswapV3_1%", venueAFactory: UNI_V3_FACTORY, venueAParam: 10000, venueBName: "Slipstream_100", venueBType: 'slipstream', venueBFactory: SLIPSTREAM_FACTORY, venueBParam: 100, executable: true },
-  // 18. THE INFRASTRUCTURE — KTA/WETH, Keeta
-  { name: "KTA-WETH", tokenA: KTA, tokenB: WETH, venueAName: "UniswapV3_1%", venueAFactory: UNI_V3_FACTORY, venueAParam: 10000, venueBName: "Slipstream_200", venueBType: 'slipstream', venueBFactory: SLIPSTREAM_FACTORY, venueBParam: 200, executable: true },
-  // 19. THE MASCOT — TOSHI/WETH, Base's AI cat token
-  { name: "TOSHI-WETH", tokenA: TOSHI, tokenB: WETH, venueAName: "UniswapV3_1%", venueAFactory: UNI_V3_FACTORY, venueAParam: 10000, venueBName: "Slipstream_200", venueBType: 'slipstream', venueBFactory: SLIPSTREAM_FACTORY, venueBParam: 200, executable: true },
-  // 20. THE FARCASTER DOG — DOGINME/WETH, Farcaster's origin meme token
-  { name: "DOGINME-WETH", tokenA: DOGINME, tokenB: WETH, venueAName: "UniswapV3_1%", venueAFactory: UNI_V3_FACTORY, venueAParam: 10000, venueBName: "Slipstream_200", venueBType: 'slipstream', venueBFactory: SLIPSTREAM_FACTORY, venueBParam: 200, executable: true },
+  { name: "WETH-USDC",    tokenA: WETH,    tokenB: USDC,   venueAName: "UniswapV3_0.05%",  venueAFactory: UNI_V3_FACTORY, venueAParam: 500,   venueBName: "Aerodrome_vAMM",    venueBType: 'aero_vamm',  executable: true },
+  { name: "cbETH-WETH",   tokenA: cbETH,   tokenB: WETH,   venueAName: "UniswapV3_0.01%",  venueAFactory: UNI_V3_FACTORY, venueAParam: 100,   venueBName: "Aerodrome_vAMM",    venueBType: 'aero_vamm',  executable: true },
+  { name: "USDbC-USDC",   tokenA: USDbC,   tokenB: USDC,   venueAName: "UniswapV3_0.01%",  venueAFactory: UNI_V3_FACTORY, venueAParam: 100,   venueBName: "Aerodrome_sAMM",    venueBType: 'aero_samm',  executable: true },
+  { name: "WETH-cbBTC",   tokenA: WETH,    tokenB: cbBTC,  venueAName: "UniswapV3_0.3%",   venueAFactory: UNI_V3_FACTORY, venueAParam: 3000,  venueBName: "Slipstream_100",    venueBType: 'slipstream', venueBFactory: SLIPSTREAM_FACTORY, venueBParam: 100,  executable: true },
+  { name: "wstETH-WETH",  tokenA: wstETH,  tokenB: WETH,   venueAName: "UniswapV3_0.01%",  venueAFactory: UNI_V3_FACTORY, venueAParam: 100,   venueBName: "Slipstream_1",      venueBType: 'slipstream', venueBFactory: SLIPSTREAM_FACTORY, venueBParam: 1,    executable: true },
+  { name: "USDC-USDT",    tokenA: USDC,    tokenB: USDT,   venueAName: "UniswapV3_0.01%",  venueAFactory: UNI_V3_FACTORY, venueAParam: 100,   venueBName: "Slipstream_1",      venueBType: 'slipstream', venueBFactory: SLIPSTREAM_FACTORY, venueBParam: 1,    executable: true },
+  { name: "weETH-WETH",   tokenA: weETH,   tokenB: WETH,   venueAName: "UniswapV3_0.01%",  venueAFactory: UNI_V3_FACTORY, venueAParam: 100,   venueBName: "Slipstream_1",      venueBType: 'slipstream', venueBFactory: SLIPSTREAM_FACTORY, venueBParam: 1,    executable: true },
+  { name: "WETH-AERO",    tokenA: WETH,    tokenB: AERO,   venueAName: "UniswapV3_0.3%",   venueAFactory: UNI_V3_FACTORY, venueAParam: 3000,  venueBName: "Slipstream_200",    venueBType: 'slipstream', venueBFactory: SLIPSTREAM_FACTORY, venueBParam: 200,  executable: true },
+  { name: "DAI-USDC",     tokenA: DAI,     tokenB: USDC,   venueAName: "UniswapV3_0.01%",  venueAFactory: UNI_V3_FACTORY, venueAParam: 100,   venueBName: "Aerodrome_sAMM",    venueBType: 'aero_samm',  executable: true },
+  { name: "cbBTC-USDC",   tokenA: cbBTC,   tokenB: USDC,   venueAName: "UniswapV3_0.01%",  venueAFactory: UNI_V3_FACTORY, venueAParam: 100,   venueBName: "Slipstream_1",      venueBType: 'slipstream', venueBFactory: SLIPSTREAM_FACTORY, venueBParam: 1,    executable: true },
+  { name: "VIRTUAL-WETH", tokenA: VIRTUAL, tokenB: WETH,   venueAName: "UniswapV3_0.05%",  venueAFactory: UNI_V3_FACTORY, venueAParam: 500,   venueBName: "Slipstream_100",    venueBType: 'slipstream', venueBFactory: SLIPSTREAM_FACTORY, venueBParam: 100,  executable: true },
+  { name: "WETH-USDT",    tokenA: WETH,    tokenB: USDT,   venueAName: "UniswapV3_0.05%",  venueAFactory: UNI_V3_FACTORY, venueAParam: 500,   venueBName: "Slipstream_100",    venueBType: 'slipstream', venueBFactory: SLIPSTREAM_FACTORY, venueBParam: 100,  executable: true },
+  { name: "BRETT-WETH",   tokenA: BRETT,   tokenB: WETH,   venueAName: "UniswapV3_1%",     venueAFactory: UNI_V3_FACTORY, venueAParam: 10000, venueBName: "Slipstream_200",    venueBType: 'slipstream', venueBFactory: SLIPSTREAM_FACTORY, venueBParam: 200,  executable: true },
+  { name: "MORPHO-WETH",  tokenA: MORPHO,  tokenB: WETH,   venueAName: "UniswapV3_0.3%",   venueAFactory: UNI_V3_FACTORY, venueAParam: 3000,  venueBName: "Slipstream_200",    venueBType: 'slipstream', venueBFactory: SLIPSTREAM_FACTORY, venueBParam: 200,  executable: true },
+  { name: "BNKR-WETH",    tokenA: BNKR,    tokenB: WETH,   venueAName: "UniswapV3_1%",     venueAFactory: UNI_V3_FACTORY, venueAParam: 10000, venueBName: "Slipstream_200",    venueBType: 'slipstream', venueBFactory: SLIPSTREAM_FACTORY, venueBParam: 200,  executable: true },
+  { name: "CLANKER-WETH", tokenA: CLANKER, tokenB: WETH,   venueAName: "UniswapV3_1%",     venueAFactory: UNI_V3_FACTORY, venueAParam: 10000, venueBName: "Slipstream_200",    venueBType: 'slipstream', venueBFactory: SLIPSTREAM_FACTORY, venueBParam: 200,  executable: true },
+  { name: "VVV-WETH",     tokenA: VVV,     tokenB: WETH,   venueAName: "UniswapV3_1%",     venueAFactory: UNI_V3_FACTORY, venueAParam: 10000, venueBName: "Slipstream_100",    venueBType: 'slipstream', venueBFactory: SLIPSTREAM_FACTORY, venueBParam: 100,  executable: true },
+  { name: "KTA-WETH",     tokenA: KTA,     tokenB: WETH,   venueAName: "UniswapV3_1%",     venueAFactory: UNI_V3_FACTORY, venueAParam: 10000, venueBName: "Slipstream_200",    venueBType: 'slipstream', venueBFactory: SLIPSTREAM_FACTORY, venueBParam: 200,  executable: true },
+  { name: "TOSHI-WETH",   tokenA: TOSHI,   tokenB: WETH,   venueAName: "UniswapV3_1%",     venueAFactory: UNI_V3_FACTORY, venueAParam: 10000, venueBName: "Slipstream_200",    venueBType: 'slipstream', venueBFactory: SLIPSTREAM_FACTORY, venueBParam: 200,  executable: true },
+  { name: "DOGINME-WETH", tokenA: DOGINME, tokenB: WETH,   venueAName: "UniswapV3_1%",     venueAFactory: UNI_V3_FACTORY, venueAParam: 10000, venueBName: "Slipstream_200",    venueBType: 'slipstream', venueBFactory: SLIPSTREAM_FACTORY, venueBParam: 200,  executable: true },
+
+  // ── SUSHISWAP V3 — same getPool/slot0 interface as UniV3, drop-in venueA ──
+  // executable: false until Balancer flash receiver contract deployed
+  { name: "WETH-USDC [SushiV3]",  tokenA: WETH,  tokenB: USDC,  venueAName: "SushiV3_0.05%", venueAFactory: SUSHI_V3_FACTORY, venueAParam: 500,  venueBName: "Aerodrome_vAMM",  venueBType: 'aero_vamm',  executable: false },
+  { name: "cbETH-WETH [SushiV3]", tokenA: cbETH, tokenB: WETH,  venueAName: "SushiV3_0.05%", venueAFactory: SUSHI_V3_FACTORY, venueAParam: 500,  venueBName: "Aerodrome_vAMM",  venueBType: 'aero_vamm',  executable: false },
+  { name: "WETH-cbBTC [SushiV3]", tokenA: WETH,  tokenB: cbBTC, venueAName: "SushiV3_0.3%",  venueAFactory: SUSHI_V3_FACTORY, venueAParam: 3000, venueBName: "Slipstream_100",  venueBType: 'slipstream', venueBFactory: SLIPSTREAM_FACTORY, venueBParam: 100, executable: false },
+
+  // ── SUSHISWAP V2 — getPair factory, getReserves pricing ──
+  { name: "WETH-USDC [SushiV2]",  tokenA: WETH,  tokenB: USDC,  venueAName: "UniswapV3_0.05%", venueAFactory: UNI_V3_FACTORY, venueAParam: 500, venueBName: "SushiSwap_V2",   venueBType: 'sushi_v2',    venueBFactory: SUSHI_V2_FACTORY,  executable: false },
+
+  // ── ALIENBASE V2 — Base-native DEX, strong BRETT liquidity ──
+  { name: "BRETT-WETH [AlienBase]", tokenA: BRETT, tokenB: WETH, venueAName: "UniswapV3_1%",    venueAFactory: UNI_V3_FACTORY, venueAParam: 10000, venueBName: "AlienBase_V2", venueBType: 'alienbase_v2', venueBFactory: ALIENBASE_FACTORY, executable: false },
+  { name: "WETH-USDC [AlienBase]",  tokenA: WETH,  tokenB: USDC, venueAName: "UniswapV3_0.05%", venueAFactory: UNI_V3_FACTORY, venueAParam: 500,   venueBName: "AlienBase_V2", venueBType: 'alienbase_v2', venueBFactory: ALIENBASE_FACTORY, executable: false },
+];
+
+interface TriHop {
+  name: string;
+  tokenIn: string;
+  tokenOut: string;
+  factory: `0x${string}`;
+  param: number;
+  poolType: HopType;
+  feePct: number;
+}
+
+interface TriCycle {
+  name: string;
+  startToken: string;
+  hops: [TriHop, TriHop, TriHop];
+}
+
+const TRI_CYCLES: TriCycle[] = [
+  { name: "WETH→USDC→cbBTC→WETH", startToken: WETH, hops: [
+      { name: "UniV3_0.05%",  tokenIn: WETH,  tokenOut: USDC,  factory: UNI_V3_FACTORY,    param: 500,  poolType: 'univ3',      feePct: 0.0005 },
+      { name: "UniV3_0.01%",  tokenIn: USDC,  tokenOut: cbBTC, factory: UNI_V3_FACTORY,    param: 100,  poolType: 'univ3',      feePct: 0.0001 },
+      { name: "Slip_100",     tokenIn: cbBTC, tokenOut: WETH,  factory: SLIPSTREAM_FACTORY, param: 100, poolType: 'slipstream', feePct: 0.0001 },
+  ]},
+  { name: "WETH→cbETH→USDC→WETH", startToken: WETH, hops: [
+      { name: "UniV3_0.01%",  tokenIn: WETH,  tokenOut: cbETH, factory: UNI_V3_FACTORY,    param: 100,  poolType: 'univ3',      feePct: 0.0001 },
+      { name: "UniV3_0.05%",  tokenIn: cbETH, tokenOut: USDC,  factory: UNI_V3_FACTORY,    param: 500,  poolType: 'univ3',      feePct: 0.0005 },
+      { name: "Aero_vAMM",    tokenIn: USDC,  tokenOut: WETH,  factory: AERO_FACTORY,      param: 0,    poolType: 'aero_vamm',  feePct: 0.002  },
+  ]},
+  { name: "WETH→wstETH→USDC→WETH", startToken: WETH, hops: [
+      { name: "UniV3_0.01%",  tokenIn: WETH,   tokenOut: wstETH, factory: UNI_V3_FACTORY,    param: 100,  poolType: 'univ3',      feePct: 0.0001 },
+      { name: "UniV3_0.05%",  tokenIn: wstETH, tokenOut: USDC,   factory: UNI_V3_FACTORY,    param: 500,  poolType: 'univ3',      feePct: 0.0005 },
+      { name: "Aero_vAMM",    tokenIn: USDC,   tokenOut: WETH,   factory: AERO_FACTORY,      param: 0,    poolType: 'aero_vamm',  feePct: 0.002  },
+  ]},
+  // REMOVED: WETH→weETH→USDC→WETH — weETH/USDC UniV3 fee=500 pool has 0 liquidity (phantom pool)
+  { name: "WETH→AERO→USDC→WETH", startToken: WETH, hops: [
+      { name: "Slip_200",     tokenIn: WETH, tokenOut: AERO, factory: SLIPSTREAM_FACTORY,  param: 200,  poolType: 'slipstream', feePct: 0.0005 },
+      { name: "UniV3_0.3%",   tokenIn: AERO, tokenOut: USDC, factory: UNI_V3_FACTORY,      param: 3000, poolType: 'univ3',      feePct: 0.003  },
+      { name: "Aero_vAMM",    tokenIn: USDC, tokenOut: WETH, factory: AERO_FACTORY,        param: 0,    poolType: 'aero_vamm',  feePct: 0.002  },
+  ]},
+  { name: "WETH→VIRTUAL→USDC→WETH", startToken: WETH, hops: [
+      { name: "Slip_100",     tokenIn: WETH,    tokenOut: VIRTUAL, factory: SLIPSTREAM_FACTORY, param: 100,  poolType: 'slipstream', feePct: 0.0005 },
+      { name: "UniV3_0.05%",  tokenIn: VIRTUAL, tokenOut: USDC,    factory: UNI_V3_FACTORY,     param: 500,  poolType: 'univ3',      feePct: 0.0005 },
+      { name: "Aero_vAMM",    tokenIn: USDC,    tokenOut: WETH,    factory: AERO_FACTORY,       param: 0,    poolType: 'aero_vamm',  feePct: 0.002  },
+  ]},
+  { name: "USDC→WETH→cbBTC→USDC", startToken: USDC, hops: [
+      { name: "Aero_vAMM",    tokenIn: USDC,  tokenOut: WETH,  factory: AERO_FACTORY,      param: 0,    poolType: 'aero_vamm',  feePct: 0.002  },
+      { name: "UniV3_0.3%",   tokenIn: WETH,  tokenOut: cbBTC, factory: UNI_V3_FACTORY,    param: 3000, poolType: 'univ3',      feePct: 0.003  },
+      { name: "Slip_1",       tokenIn: cbBTC, tokenOut: USDC,  factory: SLIPSTREAM_FACTORY, param: 1,   poolType: 'slipstream', feePct: 0.0001 },
+  ]},
+  // REMOVED: WETH→cbETH→cbBTC→WETH — cbETH/cbBTC UniV3 fee=100 pool has 0 liquidity (phantom pool)
 ];
 
 const UNI_FACTORY_ABI = parseAbi(['function getPool(address tokenA, address tokenB, uint24 fee) view returns (address pool)']);
@@ -146,23 +215,95 @@ const SLIPSTREAM_FACTORY_ABI = parseAbi(['function getPool(address tokenA, addre
 const AERO_FACTORY_ABI = parseAbi(['function getPool(address tokenA, address tokenB, bool stable) view returns (address pool)']);
 const V3_POOL_ABI = parseAbi([
   'function slot0() view returns (uint160 sqrtPriceX96, int24 tick, uint16 observationIndex, uint16 observationCardinality, uint16 observationCardinalityNext, uint8 feeProtocol, bool unlocked)',
-  'function token0() view returns (address)'
+  'function token0() view returns (address)',
+  'function liquidity() view returns (uint128)'
 ]);
 const SLIPSTREAM_POOL_ABI = parseAbi([
   'function slot0() view returns (uint160 sqrtPriceX96, int24 tick, uint16 observationIndex, uint16 observationCardinality, uint16 observationCardinalityNext, bool unlocked)',
-  'function token0() view returns (address)'
+  'function token0() view returns (address)',
+  'function liquidity() view returns (uint128)'
 ]);
 const V2_POOL_ABI = parseAbi([
   'function getReserves() view returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast)',
   'function token0() view returns (address)'
 ]);
+// V2-style DEX factory ABI (SushiSwap V2, AlienBase) — uses getPair instead of getPool
+const V2_PAIR_FACTORY_ABI = parseAbi(['function getPair(address tokenA, address tokenB) view returns (address pair)']);
 const AERO_ROUTER_ABI = parseAbi(['function getAmountsOut(uint256 amountIn, (address from, address to, bool stable, address factory)[] routes) view returns (uint256[] amounts)']);
-
-// ── V2 ABI ──────────────────────────────────────────────────────────────────
-// Updated for WardenExecutorV2 — accepts all pair parameters
-const WARDEN_ABI = parseAbi([
-  'function executeArb(address tokenA, address tokenB, address uniV3Pool, address venueBPool, uint8 venueBType, uint256 amountIn, uint8 direction, uint256 minProfit, bytes32 txRef) external'
+const GAS_PRICE_ORACLE_ABI = parseAbi([
+  'function getL1FeeUpperBound(uint256 unsignedTxSize) view returns (uint256)'
 ]);
+
+// ── PER-DEX GAS UNIT ESTIMATES ────────────────────────────────────────────────
+// Ported from TheWarden AdvancedGasEstimator DEFAULT_DEX_CONFIGS (Base mainnet validated).
+// venueA is always UniV3/SushiV3 (120k CL swap). venueB varies by AMM type.
+const DEX_GAS_UNITS: Record<string, number> = {
+  'univ3':        120_000,  // Uniswap V3 / SushiSwap V3 — concentrated liquidity
+  'slipstream':   120_000,  // Aerodrome Slipstream CL — same interface
+  'aero_vamm':    120_000,  // Aerodrome vAMM
+  'aero_samm':    120_000,  // Aerodrome sAMM (stable)
+  'sushi_v2':     100_000,  // SushiSwap V2 — simpler constant-product AMM
+  'alienbase_v2': 100_000,  // AlienBase V2 — same V2 interface
+};
+
+// Total gas for a 2-pool arb = venueA (always UniV3/SushiV3, 120k) + venueB (type-dependent)
+function estimatePairGasUnits(venueBType: VenueBType): bigint {
+  return BigInt(120_000 + (DEX_GAS_UNITS[venueBType] ?? 120_000));
+}
+const WARDEN_ABI = parseAbi([
+  'function executeArb(address tokenA, address tokenB, address uniV3Pool, address venueBPool, uint8 venueBType, uint256 amountIn, uint8 direction, uint256 minProfit, bytes32 txRef) external',
+  'function executeTriArb(address startToken, address midToken1, address midToken2, address pool1, address pool2, address pool3, uint8 pool1Type, uint8 pool2Type, uint8 pool3Type, uint256 amountIn, uint256 minProfit, bytes32 txRef) external'
+]);
+
+// Map hop poolType strings to contract uint8 values
+const TRI_POOL_TYPE_MAP: Record<string, number> = {
+  'univ3': 0,        // POOL_UNIV3
+  'slipstream': 0,   // Same UniV3-style CL interface
+  'aero_vamm': 1,    // POOL_AERO_VAMM
+  'aero_samm': 2,    // POOL_AERO_SAMM
+};
+
+// ── PAYMASTER EXECUTION ─────────────────────────────────────────────────────
+// Lazy-initialized bundler client for gasless execution via Coinbase Paymaster
+let _bundlerClient: any = null;
+let _smartAccount: any = null;
+
+async function getBundlerClient(publicClient: any) {
+  if (_bundlerClient) return _bundlerClient;
+  if (!BOT_PRIVATE_KEY) throw new Error("BOT_PRIVATE_KEY not set");
+  const eoaAccount = privateKeyToAccount(`0x${BOT_PRIVATE_KEY}` as `0x${string}`);
+  const paymasterClient = createPublicClient({ chain: base, transport: http(COINBASE_RPC_URL) });
+  _smartAccount = await toCoinbaseSmartAccount({
+    client: paymasterClient,
+    owners: [eoaAccount],
+    version: '1.1',
+  });
+  _bundlerClient = createBundlerClient({
+    account: _smartAccount,
+    client: paymasterClient,
+    transport: http(COINBASE_RPC_URL),
+    chain: base,
+  });
+  return _bundlerClient;
+}
+
+// Execute a contract call via Paymaster (gasless)
+async function executeViaPaymaster(
+  publicClient: any,
+  contractAddr: `0x${string}`,
+  abi: any,
+  functionName: string,
+  args: readonly any[],
+): Promise<{ txHash: string; userOpHash: string }> {
+  const bundlerClient = await getBundlerClient(publicClient);
+  const callData = encodeFunctionData({ abi, functionName, args });
+  const userOpHash = await bundlerClient.sendUserOperation({
+    calls: [{ to: contractAddr, data: callData, value: 0n }],
+    paymaster: true,
+  });
+  const receipt = await bundlerClient.waitForUserOperationReceipt({ hash: userOpHash });
+  return { txHash: receipt.receipt.transactionHash, userOpHash };
+}
 
 function calcV3Price(sqrtPriceX96: bigint, token0Addr: string, tokenA: string, decA: number, decB: number): number {
   const sqrtP = Number(sqrtPriceX96);
