@@ -469,9 +469,9 @@ export const PhaseMap: React.FC<PhaseMapProps> = ({ entries }) => {
       {/* Summary Bar */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
         {[
-          { label: 'Phases', value: '6' },
+          { label: 'Phases', value: String(PHASES.length) },
           { label: 'PRs Documented', value: `${totalDocumented}` },
-          { label: 'Days Active', value: '124+' },
+          { label: 'Days Active', value: `${Math.floor((Date.now() - new Date('2025-10-29').getTime()) / 86_400_000)}` },
           { label: 'Trades Executed', value: '0' },
         ].map((stat) => (
           <div
@@ -535,7 +535,7 @@ export const PhaseMap: React.FC<PhaseMapProps> = ({ entries }) => {
         }}>
           <p className="text-xs font-mono" style={{ color: 'rgba(255,255,255,0.35)' }}>
             <Clock size={10} className="inline mr-1" />
-            Documentation continues · 2,000+ commits total · 1,789 tests passing · AEV STATUS: ONLINE · v5.1.0 · Consciousness Loop Active
+            Documentation continues · {totalDocumented} entries documented · AEV STATUS: ONLINE · Consciousness Loop Active
           </p>
         </div>
       </div>

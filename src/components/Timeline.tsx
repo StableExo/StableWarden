@@ -228,7 +228,7 @@ export const Timeline: React.FC<TimelineProps> = ({ entries }) => {
           Timeline
         </h2>
         <span className="text-xs text-base-content/30">
-          {entries.length} of 2,000+ entries documented
+          {entries.length} entries documented
         </span>
       </div>
 
@@ -379,18 +379,8 @@ export const Timeline: React.FC<TimelineProps> = ({ entries }) => {
           );
         })}
 
-        {/* Remaining entries placeholder */}
+        {/* Footer */}
         <div className="relative mt-8">
-          <button
-            className="w-full flex items-center gap-3 mb-4"
-            disabled
-          >
-            <div className="flex-1 h-px bg-base-content/10" />
-            <span className="text-xs font-bold uppercase tracking-widest text-base-content/20 px-2">
-              {2000 - entries.length} entries remaining
-            </span>
-            <div className="flex-1 h-px bg-base-content/10" />
-          </button>
           <div className="bg-base-200/50 rounded-lg p-4 border border-dashed border-base-content/10">
             <p className="text-sm text-base-content/30 text-center">
               The record grows with every commit.
