@@ -25,9 +25,11 @@ const SUPABASE_URL              = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const BOT_PRIVATE_KEY           = Deno.env.get("BOT_PRIVATE_KEY");
 
-// ── V3 CONTRACT (owner = smart wallet) ──────────────────────────────────────
-const CONTRACT_ADDR = "0xA96B8c9577c2471044638772672fa1646643a9C8" as `0x${string}`;
-const SMART_WALLET  = "0x1272245579df2E988e168E1092E96F301c22DBC9" as `0x${string}`;
+// ── CONTRACTS ────────────────────────────────────────────────────────────────
+const CONTRACT_ADDR       = "0xA96B8c9577c2471044638772672fa1646643a9C8" as `0x${string}`; // WardenArb v3 (legacy)
+const FLASH_SWAP_V3_ADDR  = (Deno.env.get("FLASH_SWAP_V3_ADDRESS") ?? "") as `0x${string}`; // FlashSwapV3 (set after deploy)
+const USE_FLASH_SWAP_V3   = FLASH_SWAP_V3_ADDR.length === 42;
+const SMART_WALLET  = "0x9358D67164258370B0C07C37d3BF15A4c97b8Ab3" as `0x${string}`;
 const DRY_RUN = true;
 
 // ── QUOTER V2 — amount-aware simulation (official Base deployment) ─────────────
@@ -255,7 +257,38 @@ const WARDEN_ABI = parseAbi([
   'function executeTriArb(address startToken, address midToken1, address midToken2, address pool1, address pool2, address pool3, uint8 pool1Type, uint8 pool2Type, uint8 pool3Type, uint256 amountIn, uint256 minProfit, bytes32 txRef) external'
 ]);
 
-// Map hop poolType strings to contract uint8 values
+// ── FLASH SWAP V3 ABI ─────────────────────────────────────────────────────
+// executeArbitrage(address borrowToken, uint256 borrowAmount, (SwapStep[] steps, uint256 borrowAmount, uint256 minFinalAmount) path)
+// SwapStep = (address pool, address tokenIn, address tokenOut, uint24 fee, uint256 minOut, uint8 dexType)
+const FLASH_SWAP_V3_ABI = parseAbi([
+  'function executeArbitrage(address borrowToken, uint256 borrowAmount, ((address pool, address tokenIn, address tokenOut, uint24 fee, uint256 minOut, uint8 dexType)[] steps, uint256 borrowAmount, uint256 minFinalAmount) path) external',
+]);
+
+// FlashSwapV3 DEX type constants
+const FSV3_DEX_UNIV3       = 0;
+const FSV3_DEX_SUSHISWAP   = 1;
+const FSV3_DEX_AERODROME   = 3;  // Aerodrome V2 vAMM/sAMM — fee: 0=volatile, 1=stable
+const FSV3_DEX_SLIPSTREAM  = 7;  // Aerodrome CL — fee = tickSpacing (1, 100, 200)
+
+// Map HopType → FlashSwapV3 dexType
+const FSV3_DEX_MAP: Record<string, number> = {
+  'univ3':       FSV3_DEX_UNIV3,
+  'slipstream':  FSV3_DEX_SLIPSTREAM,
+  'aero_vamm':   FSV3_DEX_AERODROME,
+  'aero_samm':   FSV3_DEX_AERODROME,
+};
+
+// Map VenueBType → FlashSwapV3 dexType + fee encoding
+const FSV3_VENUE_B_MAP: Record<VenueBType, { dexType: number; fee: number }> = {
+  'slipstream': { dexType: FSV3_DEX_SLIPSTREAM, fee: 0 },  // fee overridden by venueBParam (tickSpacing)
+  'aero_vamm':  { dexType: FSV3_DEX_AERODROME,  fee: 0 },  // 0 = volatile
+  'aero_samm':  { dexType: FSV3_DEX_AERODROME,  fee: 1 },  // 1 = stable
+};
+
+// Aerodrome factory addresses for route encoding
+const AERO_DEFAULT_FACTORY = "0x420DD381b31aEf6683db6B902084cB0FFECe40Da";
+
+// Map hop poolType strings to WardenArb v3 contract uint8 values (legacy)
 const TRI_POOL_TYPE_MAP: Record<string, number> = {
   'univ3': 0,        // POOL_UNIV3
   'slipstream': 0,   // Same UniV3-style CL interface
@@ -384,6 +417,130 @@ serve(async (_req) => {
           }) as string;
         }
 
+async function scanTarget(
+  target: typeof TARGETS[0],
+  publicClient: any,
+  execRpcClient: any,
+  supabase: any,
+  trade_size_usd: number,
+  min_profit_threshold_usd: number,
+  gasCostEth: number,
+  ethPriceRef: { value: number },
+): Promise<any> {
+  try {
+    const decA = DECIMALS[target.tokenA.toLowerCase()] ?? 18;
+    const decB = DECIMALS[target.tokenB.toLowerCase()] ?? 18;
+    const venueAPoolAddr = await publicClient.readContract({ address: target.venueAFactory, abi: UNI_FACTORY_ABI, functionName: 'getPool', args: [target.tokenA as `0x${string}`, target.tokenB as `0x${string}`, target.venueAParam] });
+    let venueBPoolAddr: string;
+    if (target.venueBType === 'slipstream') {
+      venueBPoolAddr = await publicClient.readContract({ address: target.venueBFactory!, abi: SLIPSTREAM_FACTORY_ABI, functionName: 'getPool', args: [target.tokenA as `0x${string}`, target.tokenB as `0x${string}`, target.venueBParam!] }) as string;
+    } else {
+      const isStable = target.venueBType === 'aero_samm';
+      venueBPoolAddr = await publicClient.readContract({ address: AERO_FACTORY, abi: AERO_FACTORY_ABI, functionName: 'getPool', args: [target.tokenA as `0x${string}`, target.tokenB as `0x${string}`, isStable] }) as string;
+    }
+    if (venueAPoolAddr === NULL_ADDR || venueBPoolAddr === NULL_ADDR) return { target: target.name, status: "POOL_NOT_FOUND" };
+    const [venueASlot0, venueAToken0] = await Promise.all([
+      publicClient.readContract({ address: venueAPoolAddr as `0x${string}`, abi: V3_POOL_ABI, functionName: 'slot0' }),
+      publicClient.readContract({ address: venueAPoolAddr as `0x${string}`, abi: V3_POOL_ABI, functionName: 'token0' }),
+    ]);
+    if (venueASlot0[0] < MIN_SQRT_PRICE) return { target: target.name, status: "GHOST_POOL" };
+    const venueAPrice = calcV3Price(venueASlot0[0], venueAToken0 as string, target.tokenA, decA, decB);
+    let venueBPrice: number;
+    if (target.venueBType === 'slipstream') {
+      const [slipSlot0, slipToken0] = await Promise.all([
+        publicClient.readContract({ address: venueBPoolAddr as `0x${string}`, abi: SLIPSTREAM_POOL_ABI, functionName: 'slot0' }),
+        publicClient.readContract({ address: venueBPoolAddr as `0x${string}`, abi: SLIPSTREAM_POOL_ABI, functionName: 'token0' }),
+      ]);
+      if (slipSlot0[0] < MIN_SQRT_PRICE) return { target: target.name, status: "GHOST_POOL" };
+      venueBPrice = calcV3Price(slipSlot0[0], slipToken0 as string, target.tokenA, decA, decB);
+    } else if (target.venueBType === 'aero_samm') {
+      const amountIn = BigInt(10 ** decA);
+      const route = [{ from: target.tokenA as `0x${string}`, to: target.tokenB as `0x${string}`, stable: true, factory: AERO_FACTORY }];
+      const amounts = await publicClient.readContract({ address: AERO_ROUTER, abi: AERO_ROUTER_ABI, functionName: 'getAmountsOut', args: [amountIn, route] }) as bigint[];
+      venueBPrice = Number(amounts[1]) / Number(amountIn) * Math.pow(10, decA - decB);
+    } else {
+      const [aeroReserves, aeroToken0] = await Promise.all([
+        publicClient.readContract({ address: venueBPoolAddr as `0x${string}`, abi: V2_POOL_ABI, functionName: 'getReserves' }),
+        publicClient.readContract({ address: venueBPoolAddr as `0x${string}`, abi: V2_POOL_ABI, functionName: 'token0' }),
+      ]);
+      venueBPrice = calcAeroPrice(aeroReserves[0], aeroReserves[1], aeroToken0 as string, target.tokenA, decA, decB);
+    }
+    if (target.name === "WETH-USDC") ethPriceRef.value = (venueAPrice + venueBPrice) / 2;
+    const spreadRaw = Math.abs(venueAPrice - venueBPrice) / Math.max(venueAPrice, venueBPrice);
+    const direction = venueAPrice >= venueBPrice ? 0 : 1;
+    const dirStr = venueAPrice >= venueBPrice ? `BUY_${target.venueBName}→SELL_${target.venueAName}` : `BUY_${target.venueAName}→SELL_${target.venueBName}`;
+    const venueAFeePct  = target.venueAParam / 1_000_000;
+    const venueBFeePct  = VENUE_B_FEE_PCT[target.venueBType];
+    const totalFeePct   = venueAFeePct + venueBFeePct + AAVE_FLASH_FEE_PCT;
+    const netSpread     = spreadRaw - totalFeePct;
+    if (netSpread <= 0) return { target: target.name, venueA_price: `$${venueAPrice.toFixed(6)}`, venueB_price: `$${venueBPrice.toFixed(6)}`, spread_gross: `${(spreadRaw*100).toFixed(4)}%`, total_fees: `${(totalFeePct*100).toFixed(4)}%`, net_spread: `${(netSpread*100).toFixed(4)}%`, action: "SKIPPED_FEES_EXCEED_SPREAD", reject_reason: `fees(${(totalFeePct*100).toFixed(2)}%) > spread(${(spreadRaw*100).toFixed(2)}%)` };
+    const tokenBPriceUsd = getTokenBPriceUsd(target, venueAPrice, ethPriceRef.value);
+    const grossProfitUsd = trade_size_usd * netSpread;
+    const gasCostUsd     = gasCostEth * ethPriceRef.value;
+    const netProfit      = grossProfitUsd - gasCostUsd;
+    const isProfitable   = netProfit > min_profit_threshold_usd;
+    let action = "HOLD"; let simulationResult = null; let executionHash = null; let executionError = null; let rejectReason = null;
+    if (!isProfitable) rejectReason = `net_profit $${netProfit.toFixed(4)} < threshold $${min_profit_threshold_usd}`;
+    if (isProfitable) {
+      if (target.executable && BOT_PRIVATE_KEY) {
+        const amountInTokenB = trade_size_usd / tokenBPriceUsd;
+        const amountInWei = parseUnits(amountInTokenB.toFixed(decB > 6 ? 8 : 6), decB);
+        const minProfitTokenB = (netProfit * 0.8) / tokenBPriceUsd;
+        const minProfitWei = parseUnits(minProfitTokenB > 0 ? minProfitTokenB.toFixed(decB > 6 ? 8 : 6) : "0", decB);
+        const txRef = `0x${crypto.randomUUID().replace(/-/g, '').padEnd(64, '0')}` as `0x${string}`;
+
+        // ── Build call args: FlashSwapV3 (0% Balancer flash loan) or legacy WardenArb v3 ──
+        const contractAddr = USE_FLASH_SWAP_V3 ? FLASH_SWAP_V3_ADDR : CONTRACT_ADDR;
+        const contractAbi  = USE_FLASH_SWAP_V3 ? FLASH_SWAP_V3_ABI  : WARDEN_ABI;
+        let callArgs: any;
+
+        if (USE_FLASH_SWAP_V3) {
+          // Build FlashSwapV3 universal swap path (2 hops)
+          // Borrow tokenB → swap tokenB→tokenA on cheap venue → swap tokenA→tokenB on expensive venue
+          const venueBMapping = FSV3_VENUE_B_MAP[target.venueBType];
+          const venueBFee = target.venueBType === 'slipstream' ? (target.venueBParam ?? 100) : venueBMapping.fee;
+
+          const step1 = direction === 0
+            ? { pool: venueAPoolAddr as `0x${string}`, tokenIn: target.tokenB as `0x${string}`, tokenOut: target.tokenA as `0x${string}`, fee: target.venueAParam, minOut: 0n, dexType: FSV3_DEX_UNIV3 }
+            : { pool: venueBPoolAddr as `0x${string}`, tokenIn: target.tokenB as `0x${string}`, tokenOut: target.tokenA as `0x${string}`, fee: venueBFee, minOut: 0n, dexType: venueBMapping.dexType };
+          const step2 = direction === 0
+            ? { pool: venueBPoolAddr as `0x${string}`, tokenIn: target.tokenA as `0x${string}`, tokenOut: target.tokenB as `0x${string}`, fee: venueBFee, minOut: 0n, dexType: venueBMapping.dexType }
+            : { pool: venueAPoolAddr as `0x${string}`, tokenIn: target.tokenA as `0x${string}`, tokenOut: target.tokenB as `0x${string}`, fee: target.venueAParam, minOut: 0n, dexType: FSV3_DEX_UNIV3 };
+
+          const path = {
+            steps: [step1, step2],
+            borrowAmount: amountInWei,
+            minFinalAmount: amountInWei + minProfitWei,  // must return borrow + min profit
+          };
+
+          callArgs = {
+            address: FLASH_SWAP_V3_ADDR,
+            abi: FLASH_SWAP_V3_ABI,
+            functionName: 'executeArbitrage' as const,
+            args: [target.tokenB as `0x${string}`, amountInWei, path] as const,
+          };
+        } else {
+          // Legacy WardenArb v3 path
+          callArgs = {
+            address: CONTRACT_ADDR, abi: WARDEN_ABI, functionName: 'executeArb' as const,
+            args: [target.tokenA as `0x${string}`, target.tokenB as `0x${string}`, venueAPoolAddr as `0x${string}`, venueBPoolAddr as `0x${string}`, VENUE_B_TYPE_MAP[target.venueBType], amountInWei, direction, minProfitWei, txRef] as const,
+          };
+        }
+
+        try {
+          // Simulate from smart wallet address (the contract owner)
+          await execRpcClient.simulateContract({ ...callArgs, account: SMART_WALLET });
+          simulationResult = "SIMULATION_SUCCESS";
+          if (DRY_RUN) {
+            action = "DRY_RUN_SUCCESS";
+            await supabase.from('arbitrage_logs').insert({ network: 'base', source_a: target.venueAName, source_b: target.venueBName, token_pair: target.name, spread_pct: spreadRaw*100, gross_profit_usd: grossProfitUsd, gas_cost_usd: gasCostUsd, net_profit_usd: netProfit, direction: dirStr, status: 'DRY_RUN_SUCCESS', tx_hash: null, execution_engine: USE_FLASH_SWAP_V3 ? 'flash_swap_v3' : 'warden_arb_v3' });
+          } else {
+            // LIVE: Execute via Coinbase Paymaster (gasless)
+            action = "EXECUTE";
+            const fnName = USE_FLASH_SWAP_V3 ? 'executeArbitrage' : 'executeArb';
+            const { txHash } = await executeViaPaymaster(publicClient, contractAddr, contractAbi, fnName, callArgs.args);
+            executionHash = txHash;
+            await supabase.from('arbitrage_logs').insert({ network: 'base', source_a: target.venueAName, source_b: target.venueBName, token_pair: target.name, spread_pct: spreadRaw*100, gross_profit_usd: grossProfitUsd, gas_cost_usd: gasCostUsd, net_profit_usd: netProfit, direction: dirStr, status: 'EXECUTED', tx_hash: txHash, execution_engine: USE_FLASH_SWAP_V3 ? 'flash_swap_v3' : 'warden_arb_v3' });
         if (venueAPoolAddr === NULL_ADDR || venueBPoolAddr === NULL_ADDR) {
           matrixResults.push({ target: target.name, status: "POOL_NOT_FOUND", venueA_pool: venueAPoolAddr, venueB_pool: venueBPoolAddr });
           continue;
