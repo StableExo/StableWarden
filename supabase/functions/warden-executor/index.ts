@@ -513,6 +513,13 @@ async function scanTarget(
       const route = [{ from: target.tokenA as `0x${string}`, to: target.tokenB as `0x${string}`, stable: true, factory: AERO_FACTORY }];
       const amounts = await publicClient.readContract({ address: AERO_ROUTER, abi: AERO_ROUTER_ABI, functionName: 'getAmountsOut', args: [amountIn, route] }) as bigint[];
       venueBPrice = Number(amounts[1]) / Number(amountIn) * Math.pow(10, decA - decB);
+    } else if (target.venueBType === 'sushi_v2' || target.venueBType === 'alienbase_v2') {
+      // V2-style DEXes share the same getReserves/token0 ABI as Aerodrome vAMM
+      const [v2Reserves, v2Token0] = await Promise.all([
+        publicClient.readContract({ address: venueBPoolAddr as `0x${string}`, abi: V2_POOL_ABI, functionName: 'getReserves' }),
+        publicClient.readContract({ address: venueBPoolAddr as `0x${string}`, abi: V2_POOL_ABI, functionName: 'token0' }),
+      ]);
+      venueBPrice = calcAeroPrice(v2Reserves[0], v2Reserves[1], v2Token0 as string, target.tokenA, decA, decB);
     } else {
       const [aeroReserves, aeroToken0] = await Promise.all([
         cachedReserves(publicClient, venueBPoolAddr),
