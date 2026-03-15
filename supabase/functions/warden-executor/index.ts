@@ -9,7 +9,7 @@ import {
 } from "npm:viem"
 import { base } from "npm:viem/chains"
 import { privateKeyToAccount } from "npm:viem/accounts"
-import { toCoinbaseSmartAccount, createBundlerClient, createPaymasterClient } from "npm:viem/account-abstraction"
+import { toCoinbaseSmartAccount, createBundlerClient } from "npm:viem/account-abstraction"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const safeJson = (obj: any) =>
@@ -210,30 +210,25 @@ async function getBundlerClient(publicClient: any) {
   _smartAccount = await toCoinbaseSmartAccount({ client: publicClient, owners: [eoaAccount], version: '1.1' });
   _smartWalletAddr = _smartAccount.address as `0x${string}`;
 
-  // Gas padding hook — runs after viem builds the full UserOp internally
+  // Official Coinbase pattern: only pad preVerificationGas — let CDP handle verificationGasLimit
+  // See: https://docs.cdp.coinbase.com/paymaster/guides/quickstart
   _smartAccount.userOperation = {
     estimateGas: async (userOperation: any) => {
       const estimate = await _bundlerClient.estimateUserOperationGas(userOperation);
-      estimate.preVerificationGas  = (estimate.preVerificationGas  * 130n) / 100n;
-      estimate.callGasLimit        = (estimate.callGasLimit        * 130n) / 100n;
-      // verificationGasLimit must cover smart account deployment (initCode) + paymaster verification
-      // First-ever UserOp deploys the wallet — needs up to 1.5M+ just for that; enforce 2M floor
-      const paddedVerif            = (estimate.verificationGasLimit * 3n);
-      estimate.verificationGasLimit = paddedVerif > 2_000_000n ? paddedVerif : 2_000_000n;
+      // Only pad preVerificationGas — CDP paymaster owns verificationGasLimit
+      estimate.preVerificationGas = estimate.preVerificationGas * 2n;
       return estimate;
     },
   };
 
-  // Paymaster client handles pm_getPaymasterStubData / pm_getPaymasterData
-  const paymasterClient = createPaymasterClient({ transport: http(COINBASE_PAYMASTER_URL) });
-
-  // Bundler client — paymaster sponsorship handled automatically via paymasterClient
+  // Bundler client — paymaster: true lets CDP endpoint handle all pm_ calls internally
+  // Do NOT pass a separate paymasterClient — that causes CDP to override our gas values
   _bundlerClient = createBundlerClient({
     account:   _smartAccount,
     client:    publicClient,
     transport: http(COINBASE_PAYMASTER_URL),
     chain:     base,
-    paymaster: paymasterClient,
+    paymaster: true,
   });
 
   return _bundlerClient;
@@ -505,14 +500,14 @@ serve(async (_req) => {
     const feeKilled       = matrixResults.filter((r: any) => r.action === 'SKIPPED_FEES_EXCEED_SPREAD');
     const executed        = matrixResults.filter((r: any) => r.tx_hash);
     return new Response(safeJson({
-      version: "v78_2M_verif_floor",
+      version: "v79_official_cdp_pattern",
       network: "base",
       rpc: "alchemy_pending",
       dry_run: DRY_RUN,
       contract: CONTRACT_ADDR,
       smart_wallet: _smartWalletAddr ?? "not_initialized",
       execution_mode: "coinbase_paymaster_4337",
-      gas_padding: "+30%_callGasLimit",
+      gas_padding: "preVerificationGas_x2 — CDP owns verificationGasLimit",
       eth_price_usd: ethPriceRef.value.toFixed(2),
       gas_price_gwei: Number(formatUnits(gasPrice, 9)).toFixed(6),
       sim_gate: "REMOVED — FSV3:IFR contract guard protects against losses. simulateContract(smartWallet) was always failing (AA≠EOA).",
