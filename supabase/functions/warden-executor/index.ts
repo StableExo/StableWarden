@@ -31,6 +31,58 @@ const FLASH_SWAP_V3_ADDR  = (Deno.env.get("FLASH_SWAP_V3_ADDRESS") ?? "") as `0x
 const USE_FLASH_SWAP_V3   = FLASH_SWAP_V3_ADDR.length === 42;
 const SMART_WALLET  = "0x9358D67164258370B0C07C37d3BF15A4c97b8Ab3" as `0x${string}`;
 const DRY_RUN = true;
+// ── POOL DATA CACHE ───────────────────────────────────────────────────────────
+// Pool addresses & token0 NEVER change — cache permanently across warm restarts.
+// slot0 / reserves are block-sensitive — 2 s TTL (= 1 Base block).
+const _poolAddrCache = new Map<string, string>();
+const _token0Cache   = new Map<string, string>();
+const SLOT_CACHE_TTL_MS = 2000;
+const _slotCache = new Map<string, { data: any; ts: number }>();
+
+async function cachedPoolAddr(
+  client: any, factory: `0x${string}`, factoryAbi: any, fn: string, args: readonly any[]
+): Promise<string> {
+  const k = `${factory}|${args.join('|')}`;
+  if (_poolAddrCache.has(k)) return _poolAddrCache.get(k)!;
+  const v = await client.readContract({ address: factory, abi: factoryAbi, functionName: fn, args }) as string;
+  _poolAddrCache.set(k, v);
+  return v;
+}
+
+async function cachedToken0(client: any, pool: string, abi: any): Promise<string> {
+  const k = pool.toLowerCase();
+  if (_token0Cache.has(k)) return _token0Cache.get(k)!;
+  const v = await client.readContract({ address: pool as `0x${string}`, abi, functionName: 'token0' }) as string;
+  _token0Cache.set(k, v);
+  return v;
+}
+
+function _slotFresh(k: string): any | null {
+  const e = _slotCache.get(k);
+  return e && (Date.now() - e.ts) < SLOT_CACHE_TTL_MS ? e.data : null;
+}
+
+async function cachedSlot0(client: any, pool: string, abi: any): Promise<any> {
+  const k = `s0|${pool.toLowerCase()}`;
+  const hit = _slotFresh(k); if (hit) return hit;
+  const v = await client.readContract({ address: pool as `0x${string}`, abi, functionName: 'slot0' });
+  _slotCache.set(k, { data: v, ts: Date.now() }); return v;
+}
+
+async function cachedLiquidity(client: any, pool: string, abi: any): Promise<bigint> {
+  const k = `liq|${pool.toLowerCase()}`;
+  const hit = _slotFresh(k); if (hit !== null) return hit as bigint;
+  const v = await client.readContract({ address: pool as `0x${string}`, abi, functionName: 'liquidity' }) as bigint;
+  _slotCache.set(k, { data: v, ts: Date.now() }); return v;
+}
+
+async function cachedReserves(client: any, pool: string): Promise<any> {
+  const k = `rsv|${pool.toLowerCase()}`;
+  const hit = _slotFresh(k); if (hit) return hit;
+  const v = await client.readContract({ address: pool as `0x${string}`, abi: V2_POOL_ABI, functionName: 'getReserves' });
+  _slotCache.set(k, { data: v, ts: Date.now() }); return v;
+}
+
 
 // ── QUOTER V2 — amount-aware simulation (official Base deployment) ─────────────
 const QUOTER_V2_ADDRESS = '0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a' as `0x${string}`;
@@ -430,26 +482,29 @@ async function scanTarget(
   try {
     const decA = DECIMALS[target.tokenA.toLowerCase()] ?? 18;
     const decB = DECIMALS[target.tokenB.toLowerCase()] ?? 18;
-    const venueAPoolAddr = await publicClient.readContract({ address: target.venueAFactory, abi: UNI_FACTORY_ABI, functionName: 'getPool', args: [target.tokenA as `0x${string}`, target.tokenB as `0x${string}`, target.venueAParam] });
+    const venueAPoolAddr = await cachedPoolAddr(publicClient, target.venueAFactory, UNI_FACTORY_ABI, 'getPool',
+      [target.tokenA as `0x${string}`, target.tokenB as `0x${string}`, target.venueAParam]);
     let venueBPoolAddr: string;
     if (target.venueBType === 'slipstream') {
-      venueBPoolAddr = await publicClient.readContract({ address: target.venueBFactory!, abi: SLIPSTREAM_FACTORY_ABI, functionName: 'getPool', args: [target.tokenA as `0x${string}`, target.tokenB as `0x${string}`, target.venueBParam!] }) as string;
+      venueBPoolAddr = await cachedPoolAddr(publicClient, target.venueBFactory!, SLIPSTREAM_FACTORY_ABI, 'getPool',
+        [target.tokenA as `0x${string}`, target.tokenB as `0x${string}`, target.venueBParam!]);
     } else {
       const isStable = target.venueBType === 'aero_samm';
-      venueBPoolAddr = await publicClient.readContract({ address: AERO_FACTORY, abi: AERO_FACTORY_ABI, functionName: 'getPool', args: [target.tokenA as `0x${string}`, target.tokenB as `0x${string}`, isStable] }) as string;
+      venueBPoolAddr = await cachedPoolAddr(publicClient, AERO_FACTORY, AERO_FACTORY_ABI, 'getPool',
+        [target.tokenA as `0x${string}`, target.tokenB as `0x${string}`, isStable]);
     }
     if (venueAPoolAddr === NULL_ADDR || venueBPoolAddr === NULL_ADDR) return { target: target.name, status: "POOL_NOT_FOUND" };
     const [venueASlot0, venueAToken0] = await Promise.all([
-      publicClient.readContract({ address: venueAPoolAddr as `0x${string}`, abi: V3_POOL_ABI, functionName: 'slot0' }),
-      publicClient.readContract({ address: venueAPoolAddr as `0x${string}`, abi: V3_POOL_ABI, functionName: 'token0' }),
+      cachedSlot0(publicClient, venueAPoolAddr, V3_POOL_ABI),
+      cachedToken0(publicClient, venueAPoolAddr, V3_POOL_ABI),
     ]);
     if (venueASlot0[0] < MIN_SQRT_PRICE) return { target: target.name, status: "GHOST_POOL" };
     const venueAPrice = calcV3Price(venueASlot0[0], venueAToken0 as string, target.tokenA, decA, decB);
     let venueBPrice: number;
     if (target.venueBType === 'slipstream') {
       const [slipSlot0, slipToken0] = await Promise.all([
-        publicClient.readContract({ address: venueBPoolAddr as `0x${string}`, abi: SLIPSTREAM_POOL_ABI, functionName: 'slot0' }),
-        publicClient.readContract({ address: venueBPoolAddr as `0x${string}`, abi: SLIPSTREAM_POOL_ABI, functionName: 'token0' }),
+        cachedSlot0(publicClient, venueBPoolAddr, SLIPSTREAM_POOL_ABI),
+        cachedToken0(publicClient, venueBPoolAddr, SLIPSTREAM_POOL_ABI),
       ]);
       if (slipSlot0[0] < MIN_SQRT_PRICE) return { target: target.name, status: "GHOST_POOL" };
       venueBPrice = calcV3Price(slipSlot0[0], slipToken0 as string, target.tokenA, decA, decB);
@@ -460,8 +515,8 @@ async function scanTarget(
       venueBPrice = Number(amounts[1]) / Number(amountIn) * Math.pow(10, decA - decB);
     } else {
       const [aeroReserves, aeroToken0] = await Promise.all([
-        publicClient.readContract({ address: venueBPoolAddr as `0x${string}`, abi: V2_POOL_ABI, functionName: 'getReserves' }),
-        publicClient.readContract({ address: venueBPoolAddr as `0x${string}`, abi: V2_POOL_ABI, functionName: 'token0' }),
+        cachedReserves(publicClient, venueBPoolAddr),
+        cachedToken0(publicClient, venueBPoolAddr, V2_POOL_ABI),
       ]);
       venueBPrice = calcAeroPrice(aeroReserves[0], aeroReserves[1], aeroToken0 as string, target.tokenA, decA, decB);
     }
