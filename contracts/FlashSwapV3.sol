@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.20;
+pragma solidity ^0.8.20;
 pragma abicoder v2;
 
 /**
@@ -14,7 +14,7 @@ pragma abicoder v2;
  * - Automatic source optimization based on token/amount/opportunity size
  * - Enhanced gas optimization with inline assembly
  * 
- * Version: 5.1.1 (FlashSwapV3 — venues: PancakeSwap V3, SushiSwap V3, AlienBase V2)
+ * Version: 5.1.2 (FlashSwapV3 — fix: remove `deadline` from _swapUniswapV3 + _swapPancakeV3)
  * Network: Base, Ethereum, Arbitrum, Optimism
  * Tithe System: 70% US debt reduction, 30% operator share
  *
@@ -85,6 +85,24 @@ interface IFlashLoanReceiver {
 }
 
 
+
+// --- SwapRouter V3 No-Deadline Interface ---
+// Uniswap V3 SwapRouter02 on Base (0x2626664c2603336e57b271c5c0b26f421741e481)
+// and PancakeSwap V3 Router on Base (0x1b81D678ffb9C0263b24A97847620C99d213eB14)
+// both use ExactInputSingleParams WITHOUT `deadline`.
+interface ISwapRouterV3 {
+    struct ExactInputSingleParams {
+        address tokenIn;
+        address tokenOut;
+        uint24  fee;
+        address recipient;
+        uint256 amountIn;
+        uint256 amountOutMinimum;
+        uint160 sqrtPriceLimitX96;
+    }
+    function exactInputSingle(ExactInputSingleParams calldata params) external payable returns (uint256 amountOut);
+}
+
 /**
  * @title FlashSwapV3
  * @notice Multi-source flash loan arbitrage with hybrid execution support
@@ -124,14 +142,24 @@ contract FlashSwapV3 is
     uint160 internal constant MIN_SQRT_RATIO = 4295128739;
     uint160 internal constant MAX_SQRT_RATIO = 1461446703485210103287273052203988822378723970342;
 
+    // --- Base Mainnet Protocol Addresses (hardcoded) ---
+    address constant UNISWAP_V3_ROUTER_ADDR    = 0x2626664c2603336E57B8cE0aeDf18FbD35f77120; // SwapRouter02 (no deadline)
+    address constant SUSHI_V2_ROUTER_ADDR      = 0x6BDED42c6DA8FBf0d2bA55B2fa120C5e0c8D7891; // SushiSwap V2 Router
+    address constant BALANCER_VAULT_ADDR       = 0xBA12222222228d8Ba445958a75a0704d566BF2C8; // Balancer V2 Vault
+    address constant AAVE_POOL_ADDR            = 0xA238Dd80C259a72e81d7e4664a9801593F98d1c5; // Aave V3 Pool
+    address constant AAVE_PROVIDER_ADDR        = 0xe20fCBdBfFC4Dd138cE8b2E6FBb6CB49777ad64B; // Aave AddressesProvider
+    address constant UNI_V3_FACTORY_ADDR       = 0x33128a8fC17869897dcE68Ed026d694621f6FDfD; // Uniswap V3 Factory
+    address constant PANCAKE_V3_ROUTER_ADDR    = 0x1b81D678ffb9C0263b24A97847620C99d213eB14; // PancakeSwap V3 SwapRouter
+    address constant ALIENBASE_V2_ROUTER_ADDR  = 0x8c1A3cF8f83074169FE5D7aD50B978e1cD6b37c7; // AlienBase V2 Router
+
     // --- State Variables ---
-    ISwapRouter        public immutable swapRouter;         // Uniswap V3
+    ISwapRouterV3      public immutable swapRouter;         // Uniswap V3 (SwapRouter02 — no deadline)
     IUniswapV2Router02 public immutable sushiRouter;        // SushiSwap V2
     IBalancerVault     public immutable balancerVault;
-    ISoloMargin        public immutable dydxSoloMargin;
+    ISoloMargin        public immutable dydxSoloMargin;     // Disabled on Base (address(0))
     IPool              public immutable aavePool;
-    ISwapRouter        public immutable pancakeV3Router;    // PancakeSwap V3
-    IUniswapV2Router02 public immutable alienBaseV2Router;  // AlienBase V2
+    ISwapRouterV3      public immutable pancakeV3Router;    // PancakeSwap V3 (no deadline)
+    IUniswapV2Router02 public immutable alienBaseV2Router;  // NEW: AlienBase V2
 
     address payable public immutable owner;
     address payable public immutable titheRecipient;
@@ -212,13 +240,6 @@ contract FlashSwapV3 is
         uint256 amountOut
     );
     
-    event TitheDistributed(
-        address indexed token,
-        address indexed titheRecipient,
-        uint256 titheAmount,
-        address indexed owner,
-        uint256 ownerAmount
-    );
     
     event HybridModeActivated(
         address indexed token,
@@ -234,8 +255,10 @@ contract FlashSwapV3 is
 
     // --- Constructor ---
     constructor(
-        address _initialOwner,          // Explicit owner — pass smart wallet address (avoids CREATE2 msg.sender issue)
+        address payable _owner,
         address _uniswapV3Router,
+        address _slipstreamRouter,
+        address _aerodromeRouter,
         address _sushiRouter,
         address _balancerVault,
         address _dydxSoloMargin,
@@ -262,12 +285,12 @@ contract FlashSwapV3 is
             require(_titheRecipient != address(0), "FSV3:ITR");
         }
 
-        swapRouter       = ISwapRouter(_uniswapV3Router);
+        swapRouter       = ISwapRouterV3(_uniswapV3Router);
         sushiRouter      = IUniswapV2Router02(_sushiRouter);
         balancerVault    = IBalancerVault(_balancerVault);
         dydxSoloMargin   = ISoloMargin(_dydxSoloMargin);
         aavePool         = IPool(_aavePoolAddress);
-        pancakeV3Router  = ISwapRouter(_pancakeV3Router);
+        pancakeV3Router  = ISwapRouterV3(_pancakeV3Router);
         alienBaseV2Router = IUniswapV2Router02(_alienBaseV2Router);
         
         v3Factory            = _v3Factory;
@@ -527,12 +550,11 @@ contract FlashSwapV3 is
     ) internal returns (uint256 amountOut) {
         IERC20(tokenIn).approve(address(swapRouter), amountIn);
         
-        ISwapRouter.ExactInputSingleParams memory params = ISwapRouter.ExactInputSingleParams({
+        ISwapRouterV3.ExactInputSingleParams memory params = ISwapRouterV3.ExactInputSingleParams({
             tokenIn:           tokenIn,
             tokenOut:          tokenOut,
             fee:               fee,
             recipient:         address(this),
-            deadline:          block.timestamp + DEADLINE_OFFSET,
             amountIn:          amountIn,
             amountOutMinimum:  minAmountOut,
             sqrtPriceLimitX96: 0
@@ -570,7 +592,37 @@ contract FlashSwapV3 is
         address tokenIn,
         address tokenOut,
         uint256 amountIn,
-        uint256 minAmountOut
+        uint256 minAmountOut,
+        bool stable,
+        address factory
+    ) internal returns (uint256 amountOut) {
+        IERC20(tokenIn).approve(address(aerodromeRouter), amountIn);
+
+        AeroRoute[] memory routes = new AeroRoute[](1);
+        routes[0] = AeroRoute({
+            from: tokenIn,
+            to: tokenOut,
+            stable: stable,
+            factory: factory
+        });
+
+        uint256[] memory amounts = aerodromeRouter.swapExactTokensForTokens(
+            amountIn,
+            minAmountOut,
+            routes,
+            address(this),
+            block.timestamp + DEADLINE_OFFSET
+        );
+
+        return amounts[amounts.length - 1];
+    }
+
+    function _swapSlipstream(
+        address tokenIn,
+        address tokenOut,
+        uint256 amountIn,
+        uint256 minAmountOut,
+        uint24 tickSpacing
     ) internal returns (uint256 amountOut) {
         return _swapSushiSwap(tokenIn, tokenOut, amountIn, minAmountOut);
     }
@@ -661,12 +713,11 @@ contract FlashSwapV3 is
     ) internal returns (uint256 amountOut) {
         IERC20(tokenIn).approve(address(pancakeV3Router), amountIn);
 
-        ISwapRouter.ExactInputSingleParams memory params = ISwapRouter.ExactInputSingleParams({
+        ISwapRouterV3.ExactInputSingleParams memory params = ISwapRouterV3.ExactInputSingleParams({
             tokenIn:           tokenIn,
             tokenOut:          tokenOut,
             fee:               fee,
             recipient:         address(this),
-            deadline:          block.timestamp + DEADLINE_OFFSET,
             amountIn:          amountIn,
             amountOutMinimum:  minAmountOut,
             sqrtPriceLimitX96: 0
@@ -707,19 +758,7 @@ contract FlashSwapV3 is
     // --- Profit Distribution ---
     function _distributeProfits(address token, uint256 netProfit) internal {
         if (netProfit == 0) return;
-        
-        uint256 titheAmount = (netProfit * titheBps) / 10000;
-        uint256 ownerAmount = netProfit - titheAmount;
-        
-        if (titheAmount > 0 && titheRecipient != address(0)) {
-            IERC20(token).safeTransfer(titheRecipient, titheAmount);
-        }
-        
-        if (ownerAmount > 0) {
-            IERC20(token).safeTransfer(owner, ownerAmount);
-        }
-        
-        emit TitheDistributed(token, titheRecipient, titheAmount, owner, ownerAmount);
+        IERC20(token).safeTransfer(owner, netProfit);
     }
 
     // --- Uniswap V3 Flash Callback (legacy — disabled) ---

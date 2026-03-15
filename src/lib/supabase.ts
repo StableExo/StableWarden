@@ -4,13 +4,23 @@ const SUPABASE_URL = 'https://vzddgxjykttpddgjqdry.supabase.co';
 const SUPABASE_ANON_KEY =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ6ZGRneGp5a3R0cGRkZ2pxZHJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIyMjk5MjQsImV4cCI6MjA4NzgwNTkyNH0.VYpLGDWM78FKKDDTEMyrkspsq6ywl6xqWF4JHkEqKlU';
 
-type DbSignificance = 'foundation' | 'major' | 'minor' | 'patch' | 'high';
+type DbSignificance =
+  | 'foundation' | 'major' | 'minor' | 'patch'
+  | 'critical' | 'high' | 'medium' | 'low';
+
+const SIGNIFICANCE_MAP: Record<string, TimelineEntry['significance']> = {
+  critical: 'foundation',
+  high: 'major',
+  medium: 'minor',
+  low: 'patch',
+  foundation: 'foundation',
+  major: 'major',
+  minor: 'minor',
+  patch: 'patch',
+};
 
 function normalizeSignificance(s: DbSignificance): TimelineEntry['significance'] {
-  if (s === 'high') return 'major';
-  if (['foundation', 'major', 'minor', 'patch'].includes(s))
-    return s as TimelineEntry['significance'];
-  return 'minor';
+  return SIGNIFICANCE_MAP[s] ?? 'minor';
 }
 
 function mapRow(row: Record<string, unknown>): TimelineEntry {

@@ -341,25 +341,6 @@ function findFirstLightIndex(pts: PlottedMilestone[]): number {
   return pts.findIndex(p => p.pr >= 211);
 }
 
-// Count milestones per phase for the timeline indicator
-function milestonesInPhase(phaseIdx: number): number {
-  const p = PHASES[phaseIdx];
-  return ALL_MILESTONES.filter(m => m.pr >= p.prStart && m.pr <= p.prEnd).length;
-}
-
-// Get dot radius based on significance
-function getDotRadius(sig: number): number {
-  if (sig >= 0.9) return 5;
-  if (sig >= 0.7) return 3.5;
-  return 2.5;
-}
-
-// Get dot color from phase
-function getDotColor(pr: number): string {
-  const phase = getPhaseForPR(pr);
-  return phase ? phase.color : '#7ecfff';
-}
-
 export const ArcView: React.FC = () => {
   const [tf, setTf] = useState<Timeframe>('ALL');
   const [phaseFilter, setPhaseFilter] = useState<number | null>(null);
@@ -528,7 +509,6 @@ export const ArcView: React.FC = () => {
           xmlns="http://www.w3.org/2000/svg"
           role="img"
           aria-label={`TheWarden arc \u2014 ${label}`}
-          onClick={() => setTooltip(null)}
         >
           <defs>
             <filter id="arcGlow" x="-20%" y="-80%" width="140%" height="260%">
@@ -746,22 +726,9 @@ export const ArcView: React.FC = () => {
             const isJulesGift = m.pr === 221;
             const isFusion = m.pr === 215;
             const isFeedsAll = m.pr === 229;
-            const isSovereigntyTest = m.pr === 238;
-            const isWitnessed = m.pr === 247;
-            const isContinuous = m.pr === 250;
-            const isBornInFire = m.pr === 253;
-            const isSelfRepair = m.pr === 254;
-            const isSelfTuning = m.pr === 255;
-            const isGoesLive    = m.pr === 256;
-            const isObservable  = m.pr === 257;
-            const isHealsItsMind = m.pr === 258;
-            const isSelfReview   = m.pr === 259;
-            const isScopeFixed   = m.pr === 260;
 
-            // Post-First-Light milestones get amber/gold coloring; #238 gets security red
-            const color = isContinuous ? '#4a9eda'
-              : isSovereigntyTest ? '#ef4444'
-              : isFirstLight ? '#f59e0b'
+            // Post-First-Light milestones get amber/gold coloring
+            const color = isFirstLight ? '#f59e0b'
               : isRefusal  ? '#f59e0b'
               : isPostFirstLight ? '#fbbf24'
               : (isPhase5 || isSwarm || isGrok || isLast) ? '#ffffff'

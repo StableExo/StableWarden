@@ -21,8 +21,8 @@ export interface TimelineEntry {
 }
 
 export interface ProjectStats {
-  totalCommits: number;
-  totalBranches: number;
+  totalEntries: number;
+  totalPRs: number;
   firstCommitDate: string;
   latestActivity: string;
   contributors: number;
