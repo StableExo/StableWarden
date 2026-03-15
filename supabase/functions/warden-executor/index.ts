@@ -17,7 +17,6 @@ const safeJson = (obj: any) =>
 
 const ALCHEMY_RPC_URL        = "https://base-mainnet.g.alchemy.com/v2/3wG3PLWyPu2DliGQLVa8G";
 const BASE_RPC_URL           = Deno.env.get("BASE_RPC_URL") ?? ALCHEMY_RPC_URL;
-// CDP Paymaster URL — read from env (preferred) or fallback to portal key
 const COINBASE_PAYMASTER_URL = Deno.env.get("COINBASE_PAYMASTER_URL") ?? "https://api.developer.coinbase.com/rpc/v1/base/ve3syal5dONMkAR38clgHXHLOdPDda1u";
 
 const SUPABASE_URL              = Deno.env.get("SUPABASE_URL")!;
@@ -70,13 +69,12 @@ const DECIMALS: Record<string, number> = {
 
 const stableTokens = [USDC, USDbC, USDT, DAI].map(t => t.toLowerCase());
 
-// Only working DEX types (Aerodrome/Slipstream/AlienBase removed — contract stubs them out)
 type VenueBType = 'sushi_v2' | 'pancake_v3' | 'sushi_v3';
 
 const VENUE_B_TYPE_MAP: Record<VenueBType, number> = {
-  'sushi_v2':   1,  // DEX_TYPE_SUSHISWAP (UniV2-compatible router)
-  'pancake_v3': 8,  // DEX_TYPE_PANCAKESWAP_V3
-  'sushi_v3':   7,  // DEX_TYPE_SUSHISWAP_V3 (direct pool.swap — needs pool addr)
+  'sushi_v2':   1,
+  'pancake_v3': 8,
+  'sushi_v3':   7,
 };
 
 const VENUE_B_FEE_PCT: Record<VenueBType, number> = {
@@ -85,7 +83,6 @@ const VENUE_B_FEE_PCT: Record<VenueBType, number> = {
   'sushi_v3':   0,
 };
 
-// Active targets: Uni/PCS/Sushi only — all confirmed executable by contract
 const TARGETS: {
   name: string; tokenA: string; tokenB: string;
   venueAName: string; venueAFactory: `0x${string}`; venueAParam: number;
@@ -115,7 +112,6 @@ const TARGETS: {
   { name: "WETH-USDC [Uni↔SushiV2]",tokenA: WETH,   tokenB: USDC,  venueAName: "UniswapV3_0.05%", venueAFactory: UNI_V3_FACTORY,      venueAParam: 500,  venueBName: "SushiSwap_V2",   venueBType: 'sushi_v2',   venueBFactory: SUSHI_V2_FACTORY,               executable: true },
 ];
 
-// Triangular cycles disabled — all prior cycles used Aerodrome/Slipstream (not supported by contract)
 const TRI_CYCLES: any[] = [];
 
 const UNI_FACTORY_ABI   = parseAbi(['function getPool(address tokenA, address tokenB, uint24 fee) view returns (address pool)']);
@@ -150,7 +146,7 @@ const WARDEN_ABI = parseAbi([
 function getVenueADexType(factory: string): number {
   if (factory.toLowerCase() === PANCAKE_V3_FACTORY.toLowerCase()) return 8;
   if (factory.toLowerCase() === SUSHI_V3_FACTORY.toLowerCase())   return 7;
-  return 0; // UniswapV3 default
+  return 0;
 }
 
 function buildTwoStepPath(
@@ -165,14 +161,11 @@ function buildTwoStepPath(
   const venueADexType = getVenueADexType(t.venueAFactory);
   const venueBDexType = VENUE_B_TYPE_MAP[t.venueBType];
   const ZERO_ADDR = '0x0000000000000000000000000000000000000000' as `0x${string}`;
-  // SushiV3 (dexType=7) calls pool directly — must pass pool address
-  // UniV3 (dexType=0) and PancakeV3 (dexType=8) use their own routers — pool not needed
   const venueAPool = (venueADexType === 7 ? venueAPoolAddr : ZERO_ADDR) as `0x${string}`;
   const venueBPool = (venueBDexType === 7 ? venueBPoolAddr : ZERO_ADDR) as `0x${string}`;
 
   let steps: any[];
   if (!useTokenABorrow) {
-    // Borrowed tokenB — steps: tokenB→tokenA→tokenB
     steps = direction === 0
       ? [
           { pool: venueBPool, tokenIn: t.tokenB as `0x${string}`, tokenOut: t.tokenA as `0x${string}`, fee: t.venueBParam ?? 0, minOut: 0n, dexType: venueBDexType },
@@ -183,7 +176,6 @@ function buildTwoStepPath(
           { pool: venueBPool, tokenIn: t.tokenA as `0x${string}`, tokenOut: t.tokenB as `0x${string}`, fee: t.venueBParam ?? 0, minOut: 0n, dexType: venueBDexType },
         ];
   } else {
-    // Borrowed tokenA — steps: tokenA→tokenB→tokenA
     steps = direction === 0
       ? [
           { pool: venueAPool, tokenIn: t.tokenA as `0x${string}`, tokenOut: t.tokenB as `0x${string}`, fee: t.venueAParam,        minOut: 0n, dexType: venueADexType },
@@ -206,28 +198,14 @@ async function getBundlerClient(publicClient: any) {
   if (!BOT_PRIVATE_KEY) throw new Error("BOT_PRIVATE_KEY not set");
   const eoaAccount = privateKeyToAccount(`0x${BOT_PRIVATE_KEY}` as `0x${string}`);
 
-  // Smart account uses the public RPC for on-chain reads
   _smartAccount = await toCoinbaseSmartAccount({ client: publicClient, owners: [eoaAccount], version: '1.1' });
   _smartWalletAddr = _smartAccount.address as `0x${string}`;
 
-  // Gas padding hook — with paymaster:true our values go directly to pm_getPaymasterData for signing
-  // The bundler's eth_estimateUserOperationGas underestimates verificationGasLimit when wallet is
-  // undeployed (it doesn't account for initCode/wallet-deployment gas). We must enforce a 2M floor.
-  _smartAccount.userOperation = {
-    estimateGas: async (userOperation: any) => {
-      const estimate = await _bundlerClient.estimateUserOperationGas(userOperation);
-      // preVerificationGas: 2x (Coinbase recommended)
-      estimate.preVerificationGas = estimate.preVerificationGas * 2n;
-      // verificationGasLimit: must cover wallet deployment (first UserOp) + paymaster verification
-      // Enforce 2M floor — deployed wallet uses ~100-200k, deploying one needs ~1.5M+
-      const paddedVerif = estimate.verificationGasLimit * 3n;
-      estimate.verificationGasLimit = paddedVerif > 2_000_000n ? paddedVerif : 2_000_000n;
-      return estimate;
-    },
-  };
+  // NO estimateGas hook — all gas values set explicitly in sendUserOperation to avoid conflicts.
+  // Hook + explicit params caused ambiguity: v79-v80 (hook only) = "too low" (paymaster overrode),
+  // v81 (explicit 2M) = "too high" (found CDP ceiling), v82-v83 (explicit 800k) = testing.
+  // Conclusion: explicit params bypass paymaster override AND stay under CDP ceiling.
 
-  // Bundler client — paymaster: true lets CDP endpoint handle all pm_ calls internally
-  // Do NOT pass a separate paymasterClient — that causes CDP to override our gas values
   _bundlerClient = createBundlerClient({
     account:   _smartAccount,
     client:    publicClient,
@@ -239,20 +217,42 @@ async function getBundlerClient(publicClient: any) {
   return _bundlerClient;
 }
 
-async function executeViaPaymaster(publicClient: any, contractAddr: `0x${string}`, abi: any, functionName: string, args: readonly any[]): Promise<{ txHash: string; userOpHash: string }> {
+async function executeViaPaymaster(
+  publicClient: any,
+  contractAddr: `0x${string}`,
+  abi: any,
+  functionName: string,
+  args: readonly any[]
+): Promise<{ txHash: string; userOpHash: string }> {
   const bundlerClient = await getBundlerClient(publicClient);
   const callData = encodeFunctionData({ abi, functionName, args });
 
-  // Pass verificationGasLimit directly — sets value in UserOp BEFORE pm_getPaymasterStubData,
-  // so the paymaster receives and signs our high limit instead of estimating it lower.
-  // 2M covers: wallet deployment (~500-800k) + paymaster verification (~50k) with margin.
+  // Gas values — all explicit, no hook, no ambiguity.
+  //
+  // verificationGasLimit: 800k
+  //   - CDP bundler ceiling confirmed < 2M (v81 rejected). 800k is our binary search midpoint.
+  //   - Covers: wallet deployment (~300-500k) + signature validation (~50k) with buffer.
+  //   - At current Base gas (~0.006 Gwei): 800k × 6e6 wei = $0.012. Far under $15 paymaster limit.
+  //
+  // callGasLimit: 800k
+  //   - Flash loan + 2 V3/V2 swaps typical actual usage: ~400-600k. 800k = 1.5× buffer.
+  //
+  // preVerificationGas: 300k
+  //   - CDP recommends 2× bundler estimate. Bundler returns ~150k; 300k = safe 2× floor.
+  //
+  // Total estimated paymaster cost at 0.006 Gwei / $2500 ETH:
+  //   (800k×2 + 800k + 300k) × 6e6 wei / 1e18 × $2500 ≈ $0.048 << $15
   const userOpHash = await bundlerClient.sendUserOperation({
     calls: [{ to: contractAddr, data: callData, value: 0n }],
     verificationGasLimit: 800_000n,
-    preVerificationGas: 300_000n,
+    callGasLimit:         800_000n,
+    preVerificationGas:   300_000n,
   });
 
-  const receipt = await bundlerClient.waitForUserOperationReceipt({ hash: userOpHash });
+  const receipt = await bundlerClient.waitForUserOperationReceipt({
+    hash: userOpHash,
+    timeout: 60_000, // 60s max wait for receipt
+  });
   return { txHash: receipt.receipt.transactionHash, userOpHash };
 }
 
@@ -283,7 +283,7 @@ function venueAPoolKey(t: typeof TARGETS[0]): string {
 
 function venueBPoolKey(t: typeof TARGETS[0]): string {
   if (t.venueBType === 'pancake_v3' || t.venueBType === 'sushi_v3') return `${t.venueBFactory}|${t.tokenA}|${t.tokenB}|${t.venueBParam}`;
-  return `${t.venueBFactory}|${t.tokenA}|${t.tokenB}|getPair`; // sushi_v2
+  return `${t.venueBFactory}|${t.tokenA}|${t.tokenB}|getPair`;
 }
 
 async function loadPoolCache(supabase: any): Promise<Map<string, string>> {
@@ -303,7 +303,6 @@ async function discoverAndCacheMissingPools(publicClient: any, supabase: any, po
       if (t.venueBType === 'pancake_v3' || t.venueBType === 'sushi_v3') {
         specs.push({ key: kbKey, address: t.venueBFactory!, abi: UNI_FACTORY_ABI, functionName: 'getPool', args: [t.tokenA, t.tokenB, t.venueBParam!] });
       } else {
-        // sushi_v2
         specs.push({ key: kbKey, address: t.venueBFactory!, abi: V2_PAIR_FACTORY_ABI, functionName: 'getPair', args: [t.tokenA, t.tokenB] });
       }
     }
@@ -339,7 +338,6 @@ function buildPriceMulticall(poolCache: Map<string, string>): { contracts: any[]
       contracts.push({ address: venueBPoolAddr as `0x${string}`, abi: V3_POOL_ABI, functionName: 'slot0' }); specs.push({ targetIdx: i, role: 'venueB_slot0' });
       contracts.push({ address: venueBPoolAddr as `0x${string}`, abi: V3_POOL_ABI, functionName: 'token0' }); specs.push({ targetIdx: i, role: 'venueB_token0' });
     } else {
-      // sushi_v2
       contracts.push({ address: venueBPoolAddr as `0x${string}`, abi: V2_POOL_ABI, functionName: 'getReserves' }); specs.push({ targetIdx: i, role: 'venueB_reserves' });
       contracts.push({ address: venueBPoolAddr as `0x${string}`, abi: V2_POOL_ABI, functionName: 'token0' }); specs.push({ targetIdx: i, role: 'venueB_token0v2' });
     }
@@ -365,7 +363,11 @@ function parsePriceResults(mcResults: any[], specs: PriceCallSpec[]): Map<number
   return parsed;
 }
 
-async function batchScanAllTargets(publicClient: any, execRpcClient: any, supabase: any, trade_size_usd: number, min_profit_threshold_usd: number, gasPrice: bigint, ethPriceRef: { value: number }): Promise<any[]> {
+async function batchScanAllTargets(
+  publicClient: any, execRpcClient: any, supabase: any,
+  trade_size_usd: number, min_profit_threshold_usd: number,
+  gasPrice: bigint, ethPriceRef: { value: number }
+): Promise<any[]> {
   const poolCache = await loadPoolCache(supabase);
   await discoverAndCacheMissingPools(publicClient, supabase, poolCache);
   const { contracts, specs, skipped } = buildPriceMulticall(poolCache);
@@ -398,7 +400,6 @@ async function batchScanAllTargets(publicClient: any, execRpcClient: any, supaba
         if ((d.venueBSlot0[0] as bigint) < MIN_SQRT_PRICE) { results.push({ target: t.name, status: 'GHOST_POOL', detail: 'venueB_sqrtPrice_zero' }); continue; }
         venueBPrice = calcV3Price(d.venueBSlot0[0] as bigint, d.venueBToken0, t.tokenA, decA, decB);
       } else {
-        // sushi_v2
         if (!d.venueBReserves || !d.venueBToken0) { results.push({ target: t.name, status: 'GHOST_POOL', detail: 'venueB_reserves_missing' }); continue; }
         venueBPrice = calcAeroPrice(d.venueBReserves[0] as bigint, d.venueBReserves[1] as bigint, d.venueBToken0, t.tokenA, decA, decB);
       }
@@ -425,9 +426,6 @@ async function batchScanAllTargets(publicClient: any, execRpcClient: any, supaba
       if (!isProfitable) rejectReason = `net_profit $${netProfit.toFixed(4)} < threshold $${min_profit_threshold_usd}`;
       if (isProfitable) {
         if (t.executable && BOT_PRIVATE_KEY) {
-          // Borrow token selection:
-          // - If WETH is one of the pair tokens → always borrow WETH (Aave has $244M liquidity)
-          // - Otherwise (stable pairs) → use tokenA if Aave-supported, else tokenB
           const wethAddr = WETH.toLowerCase();
           let effectiveBorrowToken: string;
           let useTokenABorrow: boolean;
@@ -436,15 +434,14 @@ async function batchScanAllTargets(publicClient: any, execRpcClient: any, supaba
           } else if (t.tokenB.toLowerCase() === wethAddr) {
             effectiveBorrowToken = t.tokenB; useTokenABorrow = false;
           } else {
-            // Stable/non-WETH pair — borrow whichever token Aave supports
             const AAVE_SUPPORTED_STABLE = new Set([
-              "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913", // USDC
-              "0xd9aaec86b65d86f6a7b5b1b0c42ffa531710b6ca", // USDbC
-              "0x50c5725949a6f0c72e6c4a641f24049a917db0cb", // DAI
-              "0x2ae3f1ec7f1f5012cfeab0185bfc7aa3cf0dec22", // cbETH
-              "0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf", // cbBTC
-              "0xc1cba3fcea344f92d9239c08c0568f6f2f0ee452", // wstETH
-              "0x04c0599ae5a44757c0af6f9ec3b93da8976c150a", // weETH
+              "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+              "0xd9aaec86b65d86f6a7b5b1b0c42ffa531710b6ca",
+              "0x50c5725949a6f0c72e6c4a641f24049a917db0cb",
+              "0x2ae3f1ec7f1f5012cfeab0185bfc7aa3cf0dec22",
+              "0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf",
+              "0xc1cba3fcea344f92d9239c08c0568f6f2f0ee452",
+              "0x04c0599ae5a44757c0af6f9ec3b93da8976c150a",
             ]);
             const tokenAOk = AAVE_SUPPORTED_STABLE.has(t.tokenA.toLowerCase());
             useTokenABorrow = tokenAOk;
@@ -454,21 +451,17 @@ async function batchScanAllTargets(publicClient: any, execRpcClient: any, supaba
           const effectivePriceUsd = effectiveBorrowToken.toLowerCase() === wethAddr ? ethPriceRef.value : tokenBPriceUsd;
           const effectiveTokenAmount = trade_size_usd / effectivePriceUsd;
           const amountInWei = parseUnits(effectiveTokenAmount.toFixed(decEffective > 6 ? 8 : 6), decEffective);
-          // minFinalAmount = borrowed amount + Aave fee (0.09%) + 1 wei
-          // Keep it minimal — FSV3:IFR already prevents losses; don't add profit as a hard minimum
           const aaveFeeWei = (amountInWei * 9n) / 10000n;
           const minFinalAmount = amountInWei + aaveFeeWei + 1n;
           const path = buildTwoStepPath(t, direction, amountInWei, minFinalAmount, venueAPoolAddr, venueBPoolAddr, useTokenABorrow);
-          const callArgs = { address: CONTRACT_ADDR, abi: WARDEN_ABI, functionName: 'executeArbitrage' as const, args: [effectiveBorrowToken as `0x${string}`, amountInWei, path] as const };
+          const callArgs = [effectiveBorrowToken as `0x${string}`, amountInWei, path] as const;
           try {
-            // NOTE: simulateContract removed — it always fails for AA smart wallets (simulates as EOA, not via entry point).
-            // FSV3:IFR contract guard reverts the entire flash loan if profit < borrow+fee. Paymaster charges gas only on success.
             if (DRY_RUN) {
               action = 'DRY_RUN_SUCCESS';
               await supabase.from('arbitrage_logs').insert({ network: 'base', source_a: t.venueAName, source_b: t.venueBName, token_pair: t.name, spread_pct: spreadRaw*100, gross_profit_usd: grossProfitUsd, gas_cost_usd: gasCostUsd, net_profit_usd: netProfit, direction: dirStr, status: 'DRY_RUN_SUCCESS', tx_hash: null });
             } else {
               action = 'EXECUTE';
-              const { txHash } = await executeViaPaymaster(publicClient, CONTRACT_ADDR, WARDEN_ABI, 'executeArbitrage', callArgs.args);
+              const { txHash } = await executeViaPaymaster(publicClient, CONTRACT_ADDR, WARDEN_ABI, 'executeArbitrage', callArgs);
               executionHash = txHash;
               await supabase.from('arbitrage_logs').insert({ network: 'base', source_a: t.venueAName, source_b: t.venueBName, token_pair: t.name, spread_pct: spreadRaw*100, gross_profit_usd: grossProfitUsd, gas_cost_usd: gasCostUsd, net_profit_usd: netProfit, direction: dirStr, status: 'EXECUTED', tx_hash: txHash });
             }
@@ -476,7 +469,8 @@ async function batchScanAllTargets(publicClient: any, execRpcClient: any, supaba
             const errMsg = execErr?.shortMessage ?? execErr?.message ?? String(execErr);
             executionError = errMsg; rejectReason = `exec_failed: ${errMsg}`;
             action = DRY_RUN ? 'DRY_RUN_FAILED' : 'EXECUTE_FAILED';
-            await supabase.from('arbitrage_logs').insert({ network: 'base', source_a: t.venueAName, source_b: t.venueBName, token_pair: t.name, spread_pct: spreadRaw*100, gross_profit_usd: grossProfitUsd, gas_cost_usd: gasCostUsd, net_profit_usd: netProfit, direction: dirStr, status: 'EXECUTE_FAILED', tx_hash: null });
+            // Log with full error_message so we can diagnose bundler rejections
+            await supabase.from('arbitrage_logs').insert({ network: 'base', source_a: t.venueAName, source_b: t.venueBName, token_pair: t.name, spread_pct: spreadRaw*100, gross_profit_usd: grossProfitUsd, gas_cost_usd: gasCostUsd, net_profit_usd: netProfit, direction: dirStr, status: 'EXECUTE_FAILED', tx_hash: null, error_message: errMsg });
           }
         } else {
           action = 'OPPORTUNITY_DETECTED';
@@ -507,25 +501,29 @@ serve(async (_req) => {
     const profitable2Pool = matrixResults.filter((r: any) => r.isProfitable);
     const feeKilled       = matrixResults.filter((r: any) => r.action === 'SKIPPED_FEES_EXCEED_SPREAD');
     const executed        = matrixResults.filter((r: any) => r.tx_hash);
+    const failed          = matrixResults.filter((r: any) => r.action === 'EXECUTE_FAILED');
     return new Response(safeJson({
-      version: "v82_gas_window_search_800k",
+      version: "v84_gas_800k_clean",
       network: "base",
       rpc: "alchemy_pending",
       dry_run: DRY_RUN,
       contract: CONTRACT_ADDR,
       smart_wallet: _smartWalletAddr ?? "not_initialized",
       execution_mode: "coinbase_paymaster_4337",
-      gas_padding: "preVerificationGas_x2 + verificationGasLimit_3x_min2M",
+      gas_strategy: "explicit_800k_verif+800k_call+300k_preverif__no_hook_no_conflict",
+      paymaster_limit: "$15/UserOp (updated from $5)",
       eth_price_usd: ethPriceRef.value.toFixed(2),
       gas_price_gwei: Number(formatUnits(gasPrice, 9)).toFixed(6),
-      sim_gate: "REMOVED — FSV3:IFR contract guard protects against losses. simulateContract(smartWallet) was always failing (AA≠EOA).",
-      dex_note: "Active: UniV3 + PancakeV3 + SushiV3 + SushiV2. Aerodrome pending Phase 3.",
+      threshold_usd: min_profit_threshold_usd,
+      trade_size_usd: trade_size_usd,
+      sim_gate: "REMOVED — FSV3:IFR contract guard protects. simulateContract(smartWallet) was always failing (AA≠EOA).",
       timing_ms: { init: t1 - t0, two_pool_scan: t2 - t1, total: t2 - t0 },
       summary: {
         total_pairs: TARGETS.length,
         fee_killed: feeKilled.length,
         profitable: profitable2Pool.length,
         executed: executed.length,
+        failed: failed.length,
       },
       two_pool_matrix: matrixResults,
     }), { headers: { 'Content-Type': 'application/json' } });
