@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.20;
+pragma solidity ^0.8.20;
 pragma abicoder v2;
 
 /**
@@ -137,11 +137,21 @@ contract FlashSwapV3 is
     uint160 internal constant MIN_SQRT_RATIO = 4295128739;
     uint160 internal constant MAX_SQRT_RATIO = 1461446703485210103287273052203988822378723970342;
 
+    // --- Base Mainnet Protocol Addresses (hardcoded) ---
+    address constant UNISWAP_V3_ROUTER_ADDR    = 0x2626664c2603336E57B8cE0aeDf18FbD35f77120; // SwapRouter02 (no deadline)
+    address constant SUSHI_V2_ROUTER_ADDR      = 0x6BDED42c6DA8FBf0d2bA55B2fa120C5e0c8D7891; // SushiSwap V2 Router
+    address constant BALANCER_VAULT_ADDR       = 0xBA12222222228d8Ba445958a75a0704d566BF2C8; // Balancer V2 Vault
+    address constant AAVE_POOL_ADDR            = 0xA238Dd80C259a72e81d7e4664a9801593F98d1c5; // Aave V3 Pool
+    address constant AAVE_PROVIDER_ADDR        = 0xe20fCBdBfFC4Dd138cE8b2E6FBb6CB49777ad64B; // Aave AddressesProvider
+    address constant UNI_V3_FACTORY_ADDR       = 0x33128a8fC17869897dcE68Ed026d694621f6FDfD; // Uniswap V3 Factory
+    address constant PANCAKE_V3_ROUTER_ADDR    = 0x1b81D678ffb9C0263b24A97847620C99d213eB14; // PancakeSwap V3 SwapRouter
+    address constant ALIENBASE_V2_ROUTER_ADDR  = 0x8c1A3cF8f83074169FE5D7aD50B978e1cD6b37c7; // AlienBase V2 Router
+
     // --- State Variables ---
     ISwapRouterV3      public immutable swapRouter;         // Uniswap V3 (SwapRouter02 — no deadline)
     IUniswapV2Router02 public immutable sushiRouter;        // SushiSwap V2
     IBalancerVault     public immutable balancerVault;
-    ISoloMargin        public immutable dydxSoloMargin;
+    ISoloMargin        public immutable dydxSoloMargin;     // Disabled on Base (address(0))
     IPool              public immutable aavePool;
     ISwapRouterV3      public immutable pancakeV3Router;    // PancakeSwap V3 (no deadline)
     IUniswapV2Router02 public immutable alienBaseV2Router;  // NEW: AlienBase V2
