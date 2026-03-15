@@ -14,9 +14,9 @@ pragma abicoder v2;
  * - Automatic source optimization based on token/amount/opportunity size
  * - Enhanced gas optimization with inline assembly
  * 
- * Version: 5.1.2 (FlashSwapV3 — fix: remove `deadline` from _swapUniswapV3 + _swapPancakeV3)
+ * Version: 5.2.0 (FlashSwapV3 — authorizedCaller, no tithe, SushiV3 sign fix, Aerodrome stub)
  * Network: Base, Ethereum, Arbitrum, Optimism
- * Tithe System: 70% US debt reduction, 30% operator share
+ * Auth: owner (EOA) receives profits; authorizedCaller (smart wallet) may call executeArbitrage
  *
  * Changelog v5.1.1:
  * - FIX: _swapSushiV3 amountSpecified sign — negate when zeroForOne=false for exact-input of token1
@@ -159,11 +159,10 @@ contract FlashSwapV3 is
     ISoloMargin        public immutable dydxSoloMargin;     // Disabled on Base (address(0))
     IPool              public immutable aavePool;
     ISwapRouterV3      public immutable pancakeV3Router;    // PancakeSwap V3 (no deadline)
-    IUniswapV2Router02 public immutable alienBaseV2Router;  // NEW: AlienBase V2
+    IUniswapV2Router02 public immutable alienBaseV2Router;  // AlienBase V2
 
     address payable public immutable owner;
-    address payable public immutable titheRecipient;
-    uint16  public immutable titheBps;
+    address payable public immutable authorizedCaller;
     
     address public immutable v3Factory;
     address public immutable aaveAddressesProvider;
@@ -174,8 +173,7 @@ contract FlashSwapV3 is
     address internal _pendingCallbackPool;
     
     uint constant DEADLINE_OFFSET  = 60;
-    uint16 constant MAX_TITHE_BPS  = 9000;
-    
+
     // Hybrid mode threshold ($50M)
     uint256 constant HYBRID_MODE_THRESHOLD = 50_000_000e6; // 50M USDC
 
@@ -240,7 +238,6 @@ contract FlashSwapV3 is
         uint256 amountOut
     );
     
-    
     event HybridModeActivated(
         address indexed token,
         uint256 borrowAmount,
@@ -249,28 +246,26 @@ contract FlashSwapV3 is
 
     // --- Modifiers ---
     modifier onlyOwner() {
-        require(msg.sender == owner, "FSV3:NA");
+        require(msg.sender == owner || msg.sender == authorizedCaller, "FSV3:NA");
         _;
     }
 
     // --- Constructor ---
     constructor(
         address payable _owner,
+        address payable _authorizedCaller,
         address _uniswapV3Router,
-        address _slipstreamRouter,
-        address _aerodromeRouter,
         address _sushiRouter,
         address _balancerVault,
         address _dydxSoloMargin,
         address _aavePoolAddress,
         address _aaveAddressesProvider,
         address _v3Factory,
-        address payable _titheRecipient,
-        uint16  _titheBps,
-        address _pancakeV3Router,       // PancakeSwap V3 SwapRouter on Base: 0x1b81D678ffb9C0263b24A97847620C99d213eB14
-        address _alienBaseV2Router      // AlienBase V2 Router on Base:       0x8c1A3cF8f83074169FE5D7aD50B978e1cD6b37c7
+        address _pancakeV3Router,
+        address _alienBaseV2Router
     ) {
-        require(_initialOwner       != address(0), "FSV3:IOW");
+        require(_owner              != address(0), "FSV3:IOW");
+        require(_authorizedCaller   != address(0), "FSV3:IAC");
         require(_uniswapV3Router    != address(0), "FSV3:IUR");
         require(_sushiRouter        != address(0), "FSV3:ISR");
         require(_balancerVault      != address(0), "FSV3:IBV");
@@ -279,25 +274,19 @@ contract FlashSwapV3 is
         require(_v3Factory          != address(0), "FSV3:IVF");
         require(_pancakeV3Router    != address(0), "FSV3:IPR");
         require(_alienBaseV2Router  != address(0), "FSV3:IAB");
-        require(_titheBps <= MAX_TITHE_BPS, "FSV3:TBT");
-        
-        if (_titheBps > 0) {
-            require(_titheRecipient != address(0), "FSV3:ITR");
-        }
 
-        swapRouter       = ISwapRouterV3(_uniswapV3Router);
-        sushiRouter      = IUniswapV2Router02(_sushiRouter);
-        balancerVault    = IBalancerVault(_balancerVault);
-        dydxSoloMargin   = ISoloMargin(_dydxSoloMargin);
-        aavePool         = IPool(_aavePoolAddress);
-        pancakeV3Router  = ISwapRouterV3(_pancakeV3Router);
+        swapRouter        = ISwapRouterV3(_uniswapV3Router);
+        sushiRouter       = IUniswapV2Router02(_sushiRouter);
+        balancerVault     = IBalancerVault(_balancerVault);
+        dydxSoloMargin    = ISoloMargin(_dydxSoloMargin);
+        aavePool          = IPool(_aavePoolAddress);
+        pancakeV3Router   = ISwapRouterV3(_pancakeV3Router);
         alienBaseV2Router = IUniswapV2Router02(_alienBaseV2Router);
-        
-        v3Factory            = _v3Factory;
+
+        v3Factory             = _v3Factory;
         aaveAddressesProvider = _aaveAddressesProvider;
-        owner            = payable(_initialOwner);
-        titheRecipient   = _titheRecipient;
-        titheBps         = _titheBps;
+        owner                 = _owner;
+        authorizedCaller      = _authorizedCaller;
     }
 
     // --- Aave Interface Implementations ---
@@ -497,7 +486,7 @@ contract FlashSwapV3 is
      * DEX type routing:
      *   0 = Uniswap V3         (uses swapRouter)
      *   1 = SushiSwap V2       (uses sushiRouter, IUniswapV2Router02)
-     *   3 = Aerodrome (V2)     (uses sushiRouter-compatible interface)
+     *   3 = Aerodrome (V2)     (stub — reverts FSV3:AERO_NS)
      *   7 = SushiSwap V3       (direct pool.swap() — step.pool MUST be set)
      *   8 = PancakeSwap V3     (uses pancakeV3Router, ISwapRouter)
      *   9 = AlienBase V2       (uses alienBaseV2Router, IUniswapV2Router02)
@@ -517,18 +506,16 @@ contract FlashSwapV3 is
             } else if (step.dexType == DEX_TYPE_AERODROME) {
                 currentAmount = _swapAerodrome(step.tokenIn, step.tokenOut, currentAmount, step.minOut);
             } else if (step.dexType == DEX_TYPE_SUSHISWAP_V3) {
-                // step.pool MUST contain the SushiSwap V3 pool address
                 currentAmount = _swapSushiV3(step.pool, step.tokenIn, step.tokenOut, currentAmount, step.minOut);
             } else if (step.dexType == DEX_TYPE_PANCAKESWAP_V3) {
                 currentAmount = _swapPancakeV3(step.tokenIn, step.tokenOut, currentAmount, step.minOut, step.fee);
             } else if (step.dexType == DEX_TYPE_ALIENBASE_V2) {
                 currentAmount = _swapAlienBaseV2(step.tokenIn, step.tokenOut, currentAmount, step.minOut);
             } else {
-                revert("FSV3:UDT"); // Unsupported DEX type
+                revert("FSV3:UDT");
             }
             
             require(currentAmount >= step.minOut, "FSV3:SLIP");
-            
             emit SwapExecuted(i, step.dexType, step.tokenIn, step.tokenOut, path.borrowAmount, currentAmount);
         }
         
@@ -588,43 +575,14 @@ contract FlashSwapV3 is
     }
 
     // --- Aerodrome (V2-compatible) ---
+    // Stub: Aerodrome not active in current deployment. Extend when router address is confirmed.
     function _swapAerodrome(
-        address tokenIn,
-        address tokenOut,
-        uint256 amountIn,
-        uint256 minAmountOut,
-        bool stable,
-        address factory
-    ) internal returns (uint256 amountOut) {
-        IERC20(tokenIn).approve(address(aerodromeRouter), amountIn);
-
-        AeroRoute[] memory routes = new AeroRoute[](1);
-        routes[0] = AeroRoute({
-            from: tokenIn,
-            to: tokenOut,
-            stable: stable,
-            factory: factory
-        });
-
-        uint256[] memory amounts = aerodromeRouter.swapExactTokensForTokens(
-            amountIn,
-            minAmountOut,
-            routes,
-            address(this),
-            block.timestamp + DEADLINE_OFFSET
-        );
-
-        return amounts[amounts.length - 1];
-    }
-
-    function _swapSlipstream(
-        address tokenIn,
-        address tokenOut,
-        uint256 amountIn,
-        uint256 minAmountOut,
-        uint24 tickSpacing
-    ) internal returns (uint256 amountOut) {
-        return _swapSushiSwap(tokenIn, tokenOut, amountIn, minAmountOut);
+        address,
+        address,
+        uint256,
+        uint256
+    ) internal pure returns (uint256) {
+        revert("FSV3:AERO_NS");
     }
 
     // --- SushiSwap V3 (direct pool swap) ---
@@ -632,13 +590,12 @@ contract FlashSwapV3 is
      * @notice Swap via a SushiSwap V3 pool directly (Uniswap V3-compatible pool interface).
      * @dev    step.pool must be set to the correct SushiSwap V3 pool address.
      *         Uses _pendingCallbackPool as a reentrancy-safe callback guard.
-     *         SushiSwap V3 Factory (Base): 0xc35DADB65012eC5796536bD9864eD8773aBc74C4
      *
      * IMPORTANT — amountSpecified sign convention (Uniswap V3 pool.swap semantics):
-     *   zeroForOne=true,  amountSpecified > 0 → exact input  of token0 ✅
-     *   zeroForOne=false, amountSpecified < 0 → exact input  of token1 ✅
-     *   zeroForOne=false, amountSpecified > 0 → exact OUTPUT of token1 ❌ (wrong direction)
-     * We always want exact-input, so negate amountSpecified when zeroForOne=false.
+     *   zeroForOne=true,  amountSpecified > 0 → exact input  of token0
+     *   zeroForOne=false, amountSpecified < 0 → exact input  of token1
+     *   zeroForOne=false, amountSpecified > 0 → exact OUTPUT of token1 (wrong)
+     * Always negate when zeroForOne=false for exact-input.
      */
     function _swapSushiV3(
         address poolAddr,
@@ -650,14 +607,8 @@ contract FlashSwapV3 is
         require(poolAddr != address(0), "FSV3:SUSHI3_POOL");
         
         bool zeroForOne = tokenIn < tokenOut;
-
-        // FIX v5.1.1: negate amountSpecified when zeroForOne=false.
-        // Uniswap V3 pool.swap() uses the sign to select exact-input vs exact-output.
-        // Positive amountSpecified when zeroForOne=false means exact-output of token1,
-        // which reverses token flow and causes the callback to pay the wrong token.
         int256 amountSpecified = zeroForOne ? int256(amountIn) : -int256(amountIn);
 
-        // Set callback guard before entering the pool
         _pendingCallbackPool = poolAddr;
 
         (int256 amount0, int256 amount1) = IUniswapV3Pool(poolAddr).swap(
@@ -668,7 +619,6 @@ contract FlashSwapV3 is
             abi.encode(tokenIn)
         );
 
-        // Clear guard after callback has been processed
         _pendingCallbackPool = address(0);
 
         amountOut = uint256(zeroForOne ? -amount1 : -amount0);
@@ -678,8 +628,6 @@ contract FlashSwapV3 is
 
     /**
      * @notice Uniswap V3 swap callback — also satisfies SushiSwap V3 (identical interface).
-     * @dev    Only callable by the pool registered in _pendingCallbackPool.
-     *         Pays the owed token (positive delta side) back to the pool.
      */
     function uniswapV3SwapCallback(
         int256 amount0Delta,
@@ -690,8 +638,6 @@ contract FlashSwapV3 is
         require(msg.sender == pending && pending != address(0), "FSV3:SWCB_INVALID");
 
         address tokenIn = abi.decode(data, (address));
-
-        // Exactly one delta is positive (what we owe), the other is negative (what we receive).
         int256 amountToPay = amount0Delta > 0 ? amount0Delta : amount1Delta;
         require(amountToPay > 0, "FSV3:SWCB_ZERO");
 
@@ -699,11 +645,6 @@ contract FlashSwapV3 is
     }
 
     // --- PancakeSwap V3 ---
-    /**
-     * @notice Swap via PancakeSwap V3 SwapRouter.
-     * @dev    PancakeSwap V3 SwapRouter (Base): 0x1b81D678ffb9C0263b24A97847620C99d213eB14
-     *         Implements the standard Uniswap V3 ISwapRouter interface.
-     */
     function _swapPancakeV3(
         address tokenIn,
         address tokenOut,
@@ -727,11 +668,6 @@ contract FlashSwapV3 is
     }
 
     // --- AlienBase V2 ---
-    /**
-     * @notice Swap via AlienBase V2 Router.
-     * @dev    AlienBase V2 Router (Base): 0x8c1A3cF8f83074169FE5D7aD50B978e1cD6b37c7
-     *         Implements the standard Uniswap V2 IUniswapV2Router02 interface.
-     */
     function _swapAlienBaseV2(
         address tokenIn,
         address tokenOut,
@@ -763,11 +699,10 @@ contract FlashSwapV3 is
 
     // --- Uniswap V3 Flash Callback (legacy — disabled) ---
     function uniswapV3FlashCallback(
-        uint256, /* fee0 */
-        uint256, /* fee1 */
-        bytes calldata /* data */
+        uint256,
+        uint256,
+        bytes calldata
     ) external pure override {
-        // Flash-via-V3-pool path not used; all flash loans go through Balancer/Aave.
         revert("FSV3:UFL");
     }
 
