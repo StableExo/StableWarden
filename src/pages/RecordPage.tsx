@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Header } from '../components/Header';
 import { Timeline } from '../components/Timeline';
 import { PhaseMap } from '../components/PhaseMap';
@@ -8,21 +8,17 @@ import { fetchEntries } from '../lib/supabase';
 import { Network, List, GitBranch } from 'lucide-react';
 import { Nav } from '../components/Nav';
 
-const STATS: ProjectStats = {
-  totalCommits: 2000,
-  totalBranches: 524,
-  firstCommitDate: 'October 29, 2025',
-  latestActivity: 'March 2, 2026',
-  contributors: 1,
-};
-
 type ViewMode = 'phases' | 'chronicle' | 'arc';
 
-export const RecordPage: React.FC = () => {
+interface RecordPageProps {
+  defaultView?: ViewMode;
+}
+
+export const RecordPage: React.FC<RecordPageProps> = ({ defaultView = 'phases' }) => {
   const [entries, setEntries] = useState<TimelineEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [view, setView] = useState<ViewMode>('phases');
+  const [view, setView] = useState<ViewMode>(defaultView);
 
   useEffect(() => {
     fetchEntries()
@@ -36,6 +32,25 @@ export const RecordPage: React.FC = () => {
       });
   }, []);
 
+  const stats: ProjectStats = useMemo(() => {
+    const prEntries = entries.filter((e) => e.isPR);
+    const latestDate =
+      entries.length > 0
+        ? new Date(entries[entries.length - 1].date).toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+          })
+        : '—';
+    return {
+      totalEntries: entries.length,
+      totalPRs: prEntries.length,
+      firstCommitDate: 'October 29, 2025',
+      latestActivity: latestDate,
+      contributors: 1,
+    };
+  }, [entries]);
+
   return (
     <div className="min-h-screen bg-base-100">
       <main className="p-6 max-w-3xl mx-auto" id="main-content">
@@ -46,7 +61,7 @@ export const RecordPage: React.FC = () => {
           &larr; Back
         </a>
 
-        <Header stats={STATS} />
+        <Header stats={stats} />
 
         <div className="divider divider-start text-base-content/50 text-xs tracking-widest uppercase mb-6">
           Witness &middot; Document &middot; Verify &middot; Remember
