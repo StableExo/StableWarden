@@ -1,0 +1,17 @@
+[profile.default]
+src     = "src"
+out     = "out"
+libs    = ["lib"]
+solc    = "0.8.20"
+
+# Fork Base mainnet for local tests
+# Run: anvil --fork-url $BASE_RPC_URL
+[profile.default.rpc_endpoints]
+base = "${BASE_RPC_URL}"
+
+[profile.default.etherscan]
+base = { key = "${BASESCAN_API_KEY}", url = "https://api.basescan.org/api" }
+
+[fmt]
+line_length = 100
+tab_width   = 4
