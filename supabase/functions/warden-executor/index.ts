@@ -210,13 +210,18 @@ async function getBundlerClient(publicClient: any) {
   _smartAccount = await toCoinbaseSmartAccount({ client: publicClient, owners: [eoaAccount], version: '1.1' });
   _smartWalletAddr = _smartAccount.address as `0x${string}`;
 
-  // Official Coinbase pattern: only pad preVerificationGas — let CDP handle verificationGasLimit
-  // See: https://docs.cdp.coinbase.com/paymaster/guides/quickstart
+  // Gas padding hook — with paymaster:true our values go directly to pm_getPaymasterData for signing
+  // The bundler's eth_estimateUserOperationGas underestimates verificationGasLimit when wallet is
+  // undeployed (it doesn't account for initCode/wallet-deployment gas). We must enforce a 2M floor.
   _smartAccount.userOperation = {
     estimateGas: async (userOperation: any) => {
       const estimate = await _bundlerClient.estimateUserOperationGas(userOperation);
-      // Only pad preVerificationGas — CDP paymaster owns verificationGasLimit
+      // preVerificationGas: 2x (Coinbase recommended)
       estimate.preVerificationGas = estimate.preVerificationGas * 2n;
+      // verificationGasLimit: must cover wallet deployment (first UserOp) + paymaster verification
+      // Enforce 2M floor — deployed wallet uses ~100-200k, deploying one needs ~1.5M+
+      const paddedVerif = estimate.verificationGasLimit * 3n;
+      estimate.verificationGasLimit = paddedVerif > 2_000_000n ? paddedVerif : 2_000_000n;
       return estimate;
     },
   };
@@ -500,14 +505,14 @@ serve(async (_req) => {
     const feeKilled       = matrixResults.filter((r: any) => r.action === 'SKIPPED_FEES_EXCEED_SPREAD');
     const executed        = matrixResults.filter((r: any) => r.tx_hash);
     return new Response(safeJson({
-      version: "v79_official_cdp_pattern",
+      version: "v80_paymaster_true_2M_verif",
       network: "base",
       rpc: "alchemy_pending",
       dry_run: DRY_RUN,
       contract: CONTRACT_ADDR,
       smart_wallet: _smartWalletAddr ?? "not_initialized",
       execution_mode: "coinbase_paymaster_4337",
-      gas_padding: "preVerificationGas_x2 — CDP owns verificationGasLimit",
+      gas_padding: "preVerificationGas_x2 + verificationGasLimit_3x_min2M",
       eth_price_usd: ethPriceRef.value.toFixed(2),
       gas_price_gwei: Number(formatUnits(gasPrice, 9)).toFixed(6),
       sim_gate: "REMOVED — FSV3:IFR contract guard protects against losses. simulateContract(smartWallet) was always failing (AA≠EOA).",
