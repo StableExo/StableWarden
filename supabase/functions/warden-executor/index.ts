@@ -248,8 +248,8 @@ async function executeViaPaymaster(publicClient: any, contractAddr: `0x${string}
   // 2M covers: wallet deployment (~500-800k) + paymaster verification (~50k) with margin.
   const userOpHash = await bundlerClient.sendUserOperation({
     calls: [{ to: contractAddr, data: callData, value: 0n }],
-    verificationGasLimit: 2_000_000n,
-    preVerificationGas: 500_000n,
+    verificationGasLimit: 800_000n,
+    preVerificationGas: 300_000n,
   });
 
   const receipt = await bundlerClient.waitForUserOperationReceipt({ hash: userOpHash });
@@ -508,7 +508,7 @@ serve(async (_req) => {
     const feeKilled       = matrixResults.filter((r: any) => r.action === 'SKIPPED_FEES_EXCEED_SPREAD');
     const executed        = matrixResults.filter((r: any) => r.tx_hash);
     return new Response(safeJson({
-      version: "v81_direct_gas_override",
+      version: "v82_gas_window_search_800k",
       network: "base",
       rpc: "alchemy_pending",
       dry_run: DRY_RUN,
