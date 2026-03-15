@@ -1,0 +1,16 @@
+name: The Warden (Autopilot)
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+jobs:
+  hunt:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wake the Warden
+        run: |
+          curl -s --request POST \
+            'https://vzddgxjykttpddgjqdry.functions.supabase.co/warden-executor' \
+            --header 'Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}' \
+            --header 'Content-Type: application/json' | jq .

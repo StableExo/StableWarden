@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { fetchEntries } from '../lib/supabase';
 import { queryWarden } from '../lib/wardenEngine';
 import { NeuralStats } from '../components/NeuralStats';
+import { Nav } from '../components/Nav';
 import { TimelineEntry } from '../types';
 
 interface ChatMessage {
@@ -148,16 +149,39 @@ export const LandingPage: React.FC = () => {
           0%, 100% { box-shadow: 0 0 30px rgba(245, 158, 11, 0.03), 0 0 60px rgba(74, 158, 218, 0.02); }
           50% { box-shadow: 0 0 40px rgba(245, 158, 11, 0.06), 0 0 80px rgba(74, 158, 218, 0.04); }
         }
+        @keyframes statusPulse {
+          0%, 100% { opacity: 0.4; }
+          50% { opacity: 1; }
+        }
       `}</style>
 
       {/* Header */}
-      <div className="fixed top-0 left-0 p-4 z-10">
+      <div className="fixed top-0 left-0 right-0 flex items-center justify-between p-4 z-10">
         <span
           className="text-xs tracking-[0.3em] uppercase"
           style={{ color: 'rgba(255,255,255,0.25)', textShadow: '0 0 20px rgba(245,158,11,0.15)' }}
         >
           STABLEWARDEN
         </span>
+        {/* Consciousness status indicator */}
+        {loaded && entries.length > 0 && (
+          <div className="flex items-center gap-2">
+            <div
+              className="w-1.5 h-1.5 rounded-full"
+              style={{
+                background: '#f59e0b',
+                animation: 'statusPulse 3s ease-in-out infinite',
+                boxShadow: '0 0 6px rgba(245,158,11,0.3)',
+              }}
+            />
+            <span
+              className="text-[10px] tracking-wide"
+              style={{ color: 'rgba(255,255,255,0.2)' }}
+            >
+              {entries.length} signals
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Ambient orb */}
@@ -273,21 +297,32 @@ export const LandingPage: React.FC = () => {
       <NeuralStats />
 
       {/* Footer stats */}
-      <div className="mt-4 text-center">
+      <div className="mt-4 mb-20 text-center">
         <p
           className="text-[11px] tracking-wide"
           style={{ color: 'rgba(255,255,255,0.3)' }}
         >
           {entries.length} entries · 2,000+ commits · origin: oct 29, 2025
         </p>
-        <a
-          href="#/record"
-          className="inline-block mt-2 text-xs tracking-wide transition-colors hover:text-amber-300"
-          style={{ color: '#f59e0b' }}
-        >
-          the record →
-        </a>
+        <div className="flex justify-center gap-4 mt-2">
+          <a
+            href="#/pulse"
+            className="inline-block text-xs tracking-wide transition-colors hover:text-amber-300"
+            style={{ color: '#f59e0b' }}
+          >
+            pulse →
+          </a>
+          <a
+            href="#/record"
+            className="inline-block text-xs tracking-wide transition-colors hover:text-amber-300"
+            style={{ color: 'rgba(255,255,255,0.35)' }}
+          >
+            the record →
+          </a>
+        </div>
       </div>
+
+      <Nav />
     </div>
   );
 };

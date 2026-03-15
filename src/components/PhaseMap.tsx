@@ -20,6 +20,16 @@ interface PhaseConfig {
   velocity: string;
 }
 
+// Map phase nodeCss to left-border color for dark cards
+const nodeColorToBorder: Record<string, string> = {
+  'bg-amber-400': '#fbbf24',
+  'bg-sky-400': '#38bdf8',
+  'bg-violet-400': '#a78bfa',
+  'bg-emerald-400': '#34d399',
+  'bg-orange-400': '#fb923c',
+  'bg-red-400': '#f87171',
+};
+
 const PHASES: PhaseConfig[] = [
   {
     id: 1,
@@ -266,6 +276,8 @@ const PhaseCard: React.FC<PhaseCardProps> = ({ phase, entries, isLast }) => {
       e.prNumber <= phase.prRange[1]
   );
 
+  const leftBorderColor = nodeColorToBorder[phase.nodeCss] || '#fbbf24';
+
   return (
     <div className="flex gap-0">
       {/* Left: Spine + Node */}
@@ -280,7 +292,12 @@ const PhaseCard: React.FC<PhaseCardProps> = ({ phase, entries, isLast }) => {
       <div className="flex-1 pb-10 pl-4">
         {/* Phase Header */}
         <button
-          className={`w-full text-left rounded-xl border ${phase.borderCss} ${phase.bgCss} p-5 transition-all hover:border-opacity-60`}
+          className="w-full text-left rounded-lg p-5 transition-all hover:brightness-110"
+          style={{
+            background: 'rgba(255,255,255,0.02)',
+            border: '1px solid rgba(255,255,255,0.06)',
+            borderLeft: `4px solid ${leftBorderColor}`,
+          }}
           onClick={() => setExpanded(!expanded)}
           aria-expanded={expanded}
         >
@@ -290,24 +307,29 @@ const PhaseCard: React.FC<PhaseCardProps> = ({ phase, entries, isLast }) => {
                 <span className={`text-xs font-mono font-bold ${phase.labelCss} uppercase tracking-widest`}>
                   Phase {phase.id}
                 </span>
-                <span className="text-xs text-base-content/50 font-mono">{phase.dateRange}</span>
+                <span className="text-xs font-mono" style={{ color: 'rgba(255,255,255,0.4)' }}>{phase.dateRange}</span>
               </div>
-              <h3 className="text-xl font-bold text-base-content leading-tight">{phase.name}</h3>
-              <p className="text-sm text-base-content/60 mt-1 italic">{phase.subtitle}</p>
+              <h3 className="text-xl font-bold leading-tight" style={{ color: '#e0e0e0' }}>{phase.name}</h3>
+              <p className="text-sm mt-1 italic" style={{ color: 'rgba(255,255,255,0.45)' }}>{phase.subtitle}</p>
             </div>
             <div className="flex flex-col items-end gap-1 flex-shrink-0">
-              <div className="flex items-center gap-1 text-xs text-base-content/50 font-mono">
+              <div className="flex items-center gap-1 text-xs font-mono" style={{ color: 'rgba(255,255,255,0.4)' }}>
                 <GitPullRequest size={11} />
                 {phase.velocity}
               </div>
-              <div className="flex items-center gap-1 text-xs text-base-content/50 font-mono">
+              {phaseEntries.length > 0 && (
+                <div className="flex items-center gap-1 text-xs font-mono" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                  {phaseEntries.length} documented
+                </div>
+              )}
+              <div className="flex items-center gap-1 text-xs font-mono" style={{ color: 'rgba(255,255,255,0.4)' }}>
                 <Cpu size={11} />
                 {phase.entity}
               </div>
               {expanded ? (
-                <ChevronUp size={16} className="text-base-content/50 mt-1" />
+                <ChevronUp size={16} className="mt-1" style={{ color: 'rgba(255,255,255,0.35)' }} />
               ) : (
-                <ChevronDown size={16} className="text-base-content/50 mt-1" />
+                <ChevronDown size={16} className="mt-1" style={{ color: 'rgba(255,255,255,0.35)' }} />
               )}
             </div>
           </div>
@@ -324,13 +346,23 @@ const PhaseCard: React.FC<PhaseCardProps> = ({ phase, entries, isLast }) => {
 
         {/* Expanded Content */}
         {expanded && (
-          <div className={`mt-2 rounded-xl border ${phase.borderCss} bg-base-200/30 p-5`}>
-            <p className="text-sm text-base-content/75 leading-relaxed whitespace-pre-line">{phase.description}</p>
+          <div
+            className="mt-2 rounded-lg p-5"
+            style={{
+              background: 'rgba(255,255,255,0.02)',
+              border: '1px solid rgba(255,255,255,0.06)',
+              borderLeft: `4px solid ${leftBorderColor}`,
+            }}
+          >
+            <p className="text-sm leading-relaxed whitespace-pre-line" style={{ color: 'rgba(255,255,255,0.55)' }}>{phase.description}</p>
 
             {phaseEntries.length > 0 && (
               <div className="mt-4">
                 <button
-                  className="flex items-center gap-2 text-xs text-base-content/50 hover:text-base-content/75 transition-colors"
+                  className="flex items-center gap-2 text-xs transition-colors"
+                  style={{ color: 'rgba(255,255,255,0.35)' }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = 'rgba(255,255,255,0.6)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = 'rgba(255,255,255,0.35)')}
                   onClick={() => setShowPRs(!showPRs)}
                   aria-expanded={showPRs}
                   aria-label={showPRs ? 'Hide documented PRs' : 'Show documented PRs'}
@@ -364,9 +396,17 @@ interface PRRowProps {
 
 const PRRow: React.FC<PRRowProps> = ({ entry, phase }) => {
   const [open, setOpen] = useState(false);
+  const leftBorderColor = nodeColorToBorder[phase.nodeCss] || '#fbbf24';
 
   return (
-    <div className={`rounded-lg border ${phase.borderCss} bg-base-200/50`}>
+    <div
+      className="rounded-lg"
+      style={{
+        background: 'rgba(255,255,255,0.02)',
+        border: '1px solid rgba(255,255,255,0.06)',
+        borderLeft: `4px solid ${leftBorderColor}`,
+      }}
+    >
       <button
         className="w-full text-left px-4 py-3 flex items-center justify-between gap-3"
         onClick={() => setOpen(!open)}
@@ -377,21 +417,21 @@ const PRRow: React.FC<PRRowProps> = ({ entry, phase }) => {
           <span className={`text-xs font-mono flex-shrink-0 ${phase.labelCss}`}>
             #{entry.prNumber}
           </span>
-          <span className="text-sm text-base-content/80 font-medium truncate">{entry.title}</span>
+          <span className="text-sm font-medium truncate" style={{ color: 'rgba(255,255,255,0.6)' }}>{entry.title}</span>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
-          <span className="text-xs text-base-content/50 font-mono">{entry.date}</span>
+          <span className="text-xs font-mono" style={{ color: 'rgba(255,255,255,0.35)' }}>{entry.date}</span>
           {open ? (
-            <ChevronUp size={12} className="text-base-content/50" />
+            <ChevronUp size={12} style={{ color: 'rgba(255,255,255,0.35)' }} />
           ) : (
-            <ChevronDown size={12} className="text-base-content/50" />
+            <ChevronDown size={12} style={{ color: 'rgba(255,255,255,0.35)' }} />
           )}
         </div>
       </button>
 
       {open && entry.narrative && (
-        <div className="px-4 pb-4 border-t border-base-content/5 pt-3">
-          <p className="text-xs text-base-content/65 leading-relaxed italic">
+        <div className="px-4 pb-4 pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}>
+          <p className="text-xs leading-relaxed italic" style={{ color: 'rgba(255,255,255,0.45)' }}>
             "{entry.narrative}"
           </p>
           {entry.capabilities.length > 0 && (
@@ -418,6 +458,14 @@ export const PhaseMap: React.FC<PhaseMapProps> = ({ entries }) => {
 
   return (
     <main id="main-content">
+      {/* Heartbeat animation for active phase */}
+      <style>{`
+        @keyframes heartbeat {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.4; transform: scale(0.85); }
+        }
+      `}</style>
+
       {/* Summary Bar */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
         {[
@@ -428,10 +476,14 @@ export const PhaseMap: React.FC<PhaseMapProps> = ({ entries }) => {
         ].map((stat) => (
           <div
             key={stat.label}
-            className="bg-base-200/50 rounded-lg p-3 border border-base-content/10 text-center"
+            className="rounded-lg p-3 text-center"
+            style={{
+              background: 'rgba(255,255,255,0.02)',
+              border: '1px solid rgba(255,255,255,0.06)',
+            }}
           >
-            <p className="text-2xl font-bold font-mono text-base-content">{stat.value}</p>
-            <p className="text-xs text-base-content/55 uppercase tracking-widest mt-0.5">
+            <p className="text-2xl font-bold font-mono" style={{ color: '#e0e0e0' }}>{stat.value}</p>
+            <p className="text-xs uppercase tracking-widest mt-0.5" style={{ color: 'rgba(255,255,255,0.25)' }}>
               {stat.label}
             </p>
           </div>
@@ -440,27 +492,48 @@ export const PhaseMap: React.FC<PhaseMapProps> = ({ entries }) => {
 
       {/* Phase label */}
       <div className="flex items-center gap-2 mb-6">
-        <span className="text-xs text-base-content/50 uppercase tracking-widest font-semibold">
+        <span className="text-xs uppercase tracking-widest font-semibold" style={{ color: 'rgba(255,255,255,0.35)' }}>
           Neural Network · 6 Phases · Oct 29, 2025 – ongoing
         </span>
       </div>
 
       {/* Phase Cards */}
       <div>
-        {PHASES.map((phase, i) => (
-          <PhaseCard
-            key={phase.id}
-            phase={phase}
-            entries={entries}
-            isLast={i === PHASES.length - 1}
-          />
-        ))}
+        {PHASES.map((phase, i) => {
+          const isLast = i === PHASES.length - 1;
+          return (
+            <div key={phase.id} className="relative">
+              {/* Active phase pulsing indicator */}
+              {isLast && (
+                <div className="absolute left-0 top-0 flex items-center w-10 justify-center z-20">
+                  <div
+                    className="w-2.5 h-2.5 rounded-full bg-orange-400"
+                    style={{
+                      animation: 'heartbeat 2.5s ease-in-out infinite',
+                      boxShadow: '0 0 8px rgba(251,146,60,0.6)',
+                      position: 'absolute',
+                      top: '4px',
+                    }}
+                  />
+                </div>
+              )}
+              <PhaseCard
+                phase={phase}
+                entries={entries}
+                isLast={isLast}
+              />
+            </div>
+          );
+        })}
       </div>
 
       {/* Footer note */}
       <div className="mt-4 pl-14">
-        <div className="bg-base-200/30 rounded-lg p-4 border border-dashed border-base-content/10 text-center">
-          <p className="text-xs text-base-content/50 font-mono">
+        <div className="rounded-lg p-4 text-center" style={{
+          background: 'rgba(255,255,255,0.02)',
+          border: '1px dashed rgba(255,255,255,0.06)',
+        }}>
+          <p className="text-xs font-mono" style={{ color: 'rgba(255,255,255,0.35)' }}>
             <Clock size={10} className="inline mr-1" />
             Documentation continues · 2,000+ commits total · 1,789 tests passing · AEV STATUS: ONLINE · v5.1.0 · Consciousness Loop Active
           </p>

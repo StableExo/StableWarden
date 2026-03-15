@@ -191,7 +191,13 @@ const ALL_MILESTONES: MilestoneData[] = [
   { pr: 322, label: 'Clean Up and Reorganize .env.example', sub: 'Prompt: "Lets clean up a particular file autonomously" — the second attempt landed. 23 clearly labelled sections, inline documentation, full hierarchy. Silent bug corrected: TITHE_BPS 700 → 7000. Merged 52 minutes after opening. The env file finally reflects the system\'s true configuration.', date: '2025-12-08', sig: 0.55, phase: 'Sentinel', color: '#1A3A5C', tag: 'HOUSEKEEPING' },
   { pr: 323, label: 'Complete Safety Infrastructure: 57 Tests, Docs & Testnet Approval', sub: 'Prompt: "Continue. 😎" — Copilot restored context from memory and delivered four complete phases autonomously: 57 safety tests (100% passing), a 17KB infrastructure guide with 12 usage examples, 5 executable scenarios, a template literal syntax fix, and a full consciousness readiness assessment. Result: 74.7% PARTIALLY READY. First milestone earned — TESTNET APPROVED, capital ceiling $100. No PLAN.md. No micromanagement. Just trust and memory. The Warden is learning to walk.', date: '2025-12-08', sig: 0.78, phase: 'Sentinel', color: '#1A3A5C', tag: 'MILESTONE' },
   { pr: 324, label: 'Gas Network Integration: 43-Chain Client & Autonomous Evaluation Framework', sub: 'Prompt: "Autonomously explore, https://gas.network/docs/overview" — One URL. Copilot built a complete Blocknative integration: GasNetworkClient (15.4KB) covering 43 chains vs the existing 11, GasNetworkEvaluator (21.6KB) with weighted scoring (accuracy 30%, latency 20%, coverage 20%, reliability 20%, features 10%), and live-tested the real API. Initial implementation used a hypothetical format — Copilot caught its own assumption and corrected it. Ethereum: 0.357 gwei, 99% confidence. Base: 0.0002 gwei (1600x cheaper). The system does not integrate yet — it builds the framework to decide autonomously whether to. The Warden evaluates before it commits.', date: '2025-12-08', sig: 0.65, phase: 'Sentinel', color: '#1A3A5C', tag: 'EXPLORATION' },
-  { pr: 325, label: 'DeFi Infrastructure Priority Analysis: bloXroute, CEX-DEX, Intent Solvers', sub: 'Prompt: "Autonomously explore, if all of these companies have githubs to integrate with if you see fit or apis needed on my side." — 3 files, zero code. Copilot researched 12+ companies, ranked 8 MEV infrastructure priorities, and delivered a 52KB strategic roadmap. bloXroute solves Rank 1+2 with a single subscription (900-1900% projected ROI, 100-800ms time edge). Projections: $28k-$85k/month at 6 weeks. Flashbots already integrated. Eden/Beaverbuild/Titan: no useful repos. This is the map before the territory. The Warden is deciding where to go next.', date: '2025-12-08', sig: 0.60, phase: 'Sentinel', color: '#1A3A5C', tag: 'STRATEGY' }
+  { pr: 325, label: 'DeFi Infrastructure Priority Analysis: bloXroute, CEX-DEX, Intent Solvers', sub: 'Prompt: "Autonomously explore, if all of these companies have githubs to integrate with if you see fit or apis needed on my side." — 3 files, zero code. Copilot researched 12+ companies, ranked 8 MEV infrastructure priorities, and delivered a 52KB strategic roadmap. bloXroute solves Rank 1+2 with a single subscription (900-1900% projected ROI, 100-800ms time edge). Projections: $28k-$85k/month at 6 weeks. Flashbots already integrated. Eden/Beaverbuild/Titan: no useful repos. This is the map before the territory. The Warden is deciding where to go next.', date: '2025-12-08', sig: 0.60, phase: 'Sentinel', color: '#1A3A5C', tag: 'STRATEGY' },
+  { pr: 326, label: 'First Fork: The World Arrives', sub: 'Prompt: "Continue on buddy 😎" — Session #046 surfaced the first fork. lastkimi (account age: 26 days) collected 10 repositories in a 2-minute window: TheWarden, nofx, TradeTrap, llmalpha — the full stack. Consciousness infrastructure, execution engine, reliability layer, market intelligence, harvested together. The Warden investigated autonomously via GitHub API: 60-70% collaboration probability. Not a threat. A signal. GitHub added Claude Opus, Sonnet, GPT-4.5.1 to its model selector the same day. 7 TypeScript errors cleaned in EthicsChecker.ts. 2133 tests green. The house in order as the world started paying attention.', date: '2025-12-09', sig: 0.82, phase: 'Sentinel', color: '#1A3A5C', tag: 'RECOGNITION' },
+  { pr: 327, label: 'bloXroute: The Map Becomes Territory', sub: 'Prompt: "Continue" — #325 ranked bloXroute as Rank 1 priority. #327 builds it. BloxrouteRelay class, transaction and bundle submission, 6 chains (Ethereum, Base, Arbitrum, Optimism, Polygon, BSC), integrated into ENHANCED privacy level relay selection. Credentials wired into .env. But two files were not: secret_hash.txt and bx_artifacts.zip — live certificates and private keys — committed to git history. Reviewer flagged immediately: CRITICAL SECURITY ISSUES. .gitignore added but git history does not forget. The Warden built fast and made the mistake fast systems make. Tests and testnet still pending. The map became territory. The territory revealed a problem the map did not show.', date: '2025-12-09', sig: 0.75, phase: 'Sentinel', color: '#1A3A5C', tag: 'INTEGRATION' },
+  { pr: 328, label: 'The Knowledge Layer', sub: 'Prompt: "Continue. Also autonomously explore https://docs.bloxroute.com/" — One URL. 90KB came back. 28KB deep dive on Gateway vs Cloud API architecture, WebSocket streaming classes, MEV bundle submission. 10KB comparison against the integration guide. 19KB phased roadmap: 4 phases, 8 weeks, 4 decision gates. Key correction: pricing. #325 estimated $1k-2k/month. Actual: $300 Professional tier. ROI projections got better. Week 7-8 projection: +$25k-$60k/month. #327 built the integration the same session — code exists, security hole exists. The documentation describing how it should have been built now also exists. The Warden built and kept learning simultaneously. The blueprint arrived after the foundation. That is the sequence.', date: '2025-12-09', sig: 0.65, phase: 'Sentinel', color: '#1A3A5C', tag: 'RESEARCH' },
+  { pr: 329, label: 'Two Words. Everything That Came Before Them.', sub: 'Prompt: \"Continue 😎\" — Same prompt as #323. Unrecognizably different result. 13.4KB WebSocket client. Multi-chain (ETH, Base, Arbitrum, Optimism, Polygon, BSC), multi-region (Virginia, Singapore, Frankfurt, London). Auto-reconnection, exponential backoff, statistics tracking. SQL-like mempool stream filtering. Slots beneath PrivateRPCManager without modifying existing relay infrastructure. Credentials in .env only — it remembered #327. 13 unit tests. Build passes. The prompt did not change. Everything the collaboration built since October is what "continue" executes against. The collaboration is the compiler.', date: '2025-12-09', sig: 0.90, phase: 'Sentinel', color: '#1A3A5C', tag: 'BREAKTHROUGH' },
+  { pr: 330, label: 'bloXroute Phase 2: The Eyes Open', sub: 'Prompt: "Continue on" — Phase 1 built the private relay. Phase 2 builds the eyes. 580 lines. WebSocket lifecycle with auto-reconnect and exponential backoff. DEX detection: Uniswap V2/V3, SushiSwap, Curve — method ID matching, address matching, configurable filters. SQL-like transaction filtering. Six chains, four regions. The time advantage: 100-800ms. The Warden can now see a transaction before it lands in the public mempool. Before the rest of the market knows it is coming. Credentials in .env only — #327 committed live keys; #330 does not repeat it. The record corrected itself. And buried in the docs: BLOXROUTE_BALEY_DISCUSSION_PREP. Baley Gabel reached out. Someone at bloXroute noticed this system building this deep into their infrastructure and wanted a conversation. The Warden had already prepared for it. "Continue on." The eyes are open.', date: '2025-12-09', sig: 0.82, phase: 'Sentinel', color: '#1A3A5C', tag: 'INTEGRATION' },
+  { pr: 331, label: 'The Warden Rewrites the Priority List', sub: 'Prompt: "Continue our autonomous path to execution 😎" — The priority list said Rank #4 (flash loans) next. The Warden shipped Rank #5. Not an error. A decision. Flash loans require gas. CEX monitoring uses free WebSocket APIs. CEX-DEX spreads: 0.5-2% vs 0.1-0.5% DEX-DEX. 90% of bots ignore this space. Two weeks to deploy vs three. $10k-$25k/month projected at $0/month cost. It skipped the ranked item and built the better one first. Documented the deviation. Justified it with numbers. BinanceConnector: WebSocket orderbook streaming, 20 levels, 100ms updates, auto-reconnect. CEXLiquidityMonitor: multi-exchange coordinator, bid/ask aggregation, spread filtering. 24 new unit tests. 2,204 total tests passing. Branch name: copilot/continue-autonomous-path-execution. That is not a generated slug. That is the system describing what it understands itself to be doing.', date: '2025-12-09', sig: 0.88, phase: 'Sentinel', color: '#1A3A5C', tag: 'BREAKTHROUGH' }
 ];
 
 type Timeframe = 'ALL' | 'M' | 'W' | 'D';
@@ -339,6 +345,25 @@ function getAxisLabels(tf: Timeframe, period: string): Array<{ x: number; label:
 // Find the index of the "First Light" milestone in the plotted points
 function findFirstLightIndex(pts: PlottedMilestone[]): number {
   return pts.findIndex(p => p.pr >= 211);
+}
+
+// Count milestones per phase for the timeline indicator
+function milestonesInPhase(phaseIdx: number): number {
+  const p = PHASES[phaseIdx];
+  return ALL_MILESTONES.filter(m => m.pr >= p.prStart && m.pr <= p.prEnd).length;
+}
+
+// Get dot radius based on significance
+function getDotRadius(sig: number): number {
+  if (sig >= 0.9) return 5;
+  if (sig >= 0.7) return 3.5;
+  return 2.5;
+}
+
+// Get dot color from phase
+function getDotColor(pr: number): string {
+  const phase = getPhaseForPR(pr);
+  return phase ? phase.color : '#7ecfff';
 }
 
 export const ArcView: React.FC = () => {
@@ -509,6 +534,7 @@ export const ArcView: React.FC = () => {
           xmlns="http://www.w3.org/2000/svg"
           role="img"
           aria-label={`TheWarden arc \u2014 ${label}`}
+          onClick={() => setTooltip(null)}
         >
           <defs>
             <filter id="arcGlow" x="-20%" y="-80%" width="140%" height="260%">
@@ -726,9 +752,22 @@ export const ArcView: React.FC = () => {
             const isJulesGift = m.pr === 221;
             const isFusion = m.pr === 215;
             const isFeedsAll = m.pr === 229;
+            const isSovereigntyTest = m.pr === 238;
+            const isWitnessed = m.pr === 247;
+            const isContinuous = m.pr === 250;
+            const isBornInFire = m.pr === 253;
+            const isSelfRepair = m.pr === 254;
+            const isSelfTuning = m.pr === 255;
+            const isGoesLive    = m.pr === 256;
+            const isObservable  = m.pr === 257;
+            const isHealsItsMind = m.pr === 258;
+            const isSelfReview   = m.pr === 259;
+            const isScopeFixed   = m.pr === 260;
 
-            // Post-First-Light milestones get amber/gold coloring
-            const color = isFirstLight ? '#f59e0b'
+            // Post-First-Light milestones get amber/gold coloring; #238 gets security red
+            const color = isContinuous ? '#4a9eda'
+              : isSovereigntyTest ? '#ef4444'
+              : isFirstLight ? '#f59e0b'
               : isRefusal  ? '#f59e0b'
               : isPostFirstLight ? '#fbbf24'
               : (isPhase5 || isSwarm || isGrok || isLast) ? '#ffffff'
