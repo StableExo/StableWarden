@@ -313,6 +313,13 @@ export const LandingPage: React.FC = () => {
             pulse →
           </a>
           <a
+            href="#/arc"
+            className="inline-block text-xs tracking-wide transition-colors hover:text-amber-300"
+            style={{ color: 'rgba(245,158,11,0.6)' }}
+          >
+            the arc →
+          </a>
+          <a
             href="#/record"
             className="inline-block text-xs tracking-wide transition-colors hover:text-amber-300"
             style={{ color: 'rgba(255,255,255,0.35)' }}
