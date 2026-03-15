@@ -9,15 +9,16 @@ import {
 } from "npm:viem"
 import { base } from "npm:viem/chains"
 import { privateKeyToAccount } from "npm:viem/accounts"
-import { toCoinbaseSmartAccount, createBundlerClient } from "npm:viem/account-abstraction"
+import { toCoinbaseSmartAccount, createBundlerClient, createPaymasterClient } from "npm:viem/account-abstraction"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const safeJson = (obj: any) =>
   JSON.stringify(obj, (_k, v) => (typeof v === 'bigint' ? v.toString() : v), 2);
 
-const COINBASE_RPC_URL  = "https://api.developer.coinbase.com/rpc/v1/base/EeBuC9EkcVpsMwYSiiC1TUKwFTWJVzD1";
-const ALCHEMY_RPC_URL   = "https://base-mainnet.g.alchemy.com/v2/3wG3PLWyPu2DliGQLVa8G";
-const BASE_RPC_URL = Deno.env.get("BASE_RPC_URL") ?? ALCHEMY_RPC_URL;
+const ALCHEMY_RPC_URL        = "https://base-mainnet.g.alchemy.com/v2/3wG3PLWyPu2DliGQLVa8G";
+const BASE_RPC_URL           = Deno.env.get("BASE_RPC_URL") ?? ALCHEMY_RPC_URL;
+// CDP Paymaster URL — read from env (preferred) or fallback to portal key
+const COINBASE_PAYMASTER_URL = Deno.env.get("COINBASE_PAYMASTER_URL") ?? "https://api.developer.coinbase.com/rpc/v1/base/ve3syal5dONMkAR38clgHXHLOdPDda1u";
 
 const SUPABASE_URL              = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -204,26 +205,46 @@ async function getBundlerClient(publicClient: any) {
   if (_bundlerClient) return _bundlerClient;
   if (!BOT_PRIVATE_KEY) throw new Error("BOT_PRIVATE_KEY not set");
   const eoaAccount = privateKeyToAccount(`0x${BOT_PRIVATE_KEY}` as `0x${string}`);
-  const paymasterClient = createPublicClient({ chain: base, transport: http(COINBASE_RPC_URL) });
-  _smartAccount = await toCoinbaseSmartAccount({ client: paymasterClient, owners: [eoaAccount], version: '1.1' });
+
+  // Smart account uses the public RPC for on-chain reads
+  _smartAccount = await toCoinbaseSmartAccount({ client: publicClient, owners: [eoaAccount], version: '1.1' });
   _smartWalletAddr = _smartAccount.address as `0x${string}`;
-  _bundlerClient = createBundlerClient({ account: _smartAccount, client: paymasterClient, transport: http(COINBASE_RPC_URL), chain: base });
+
+  // Gas padding hook — runs after viem builds the full UserOp internally
+  _smartAccount.userOperation = {
+    estimateGas: async (userOperation: any) => {
+      const estimate = await _bundlerClient.estimateUserOperationGas(userOperation);
+      estimate.preVerificationGas = (estimate.preVerificationGas * 130n) / 100n;
+      estimate.callGasLimit       = (estimate.callGasLimit       * 130n) / 100n;
+      return estimate;
+    },
+  };
+
+  // Paymaster client handles pm_getPaymasterStubData / pm_getPaymasterData
+  const paymasterClient = createPaymasterClient({ transport: http(COINBASE_PAYMASTER_URL) });
+
+  // Bundler client — paymaster sponsorship handled automatically via paymasterClient
+  _bundlerClient = createBundlerClient({
+    account:   _smartAccount,
+    client:    publicClient,
+    transport: http(COINBASE_PAYMASTER_URL),
+    chain:     base,
+    paymaster: paymasterClient,
+  });
+
   return _bundlerClient;
 }
 
 async function executeViaPaymaster(publicClient: any, contractAddr: `0x${string}`, abi: any, functionName: string, args: readonly any[]): Promise<{ txHash: string; userOpHash: string }> {
   const bundlerClient = await getBundlerClient(publicClient);
   const callData = encodeFunctionData({ abi, functionName, args });
-  const gasEstimate = await bundlerClient.estimateUserOperationGas({
-    calls: [{ to: contractAddr, data: callData, value: 0n }],
-    paymaster: true,
-  });
-  const paddedCallGasLimit = (gasEstimate.callGasLimit * 130n) / 100n;
+
+  // viem builds the full UserOp, calls paymasterClient for sponsorship,
+  // runs the gas-padding hook, then submits — no manual gas overrides needed
   const userOpHash = await bundlerClient.sendUserOperation({
     calls: [{ to: contractAddr, data: callData, value: 0n }],
-    paymaster: true,
-    callGasLimit: paddedCallGasLimit,
   });
+
   const receipt = await bundlerClient.waitForUserOperationReceipt({ hash: userOpHash });
   return { txHash: receipt.receipt.transactionHash, userOpHash };
 }
