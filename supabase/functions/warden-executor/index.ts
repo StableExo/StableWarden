@@ -243,10 +243,13 @@ async function executeViaPaymaster(publicClient: any, contractAddr: `0x${string}
   const bundlerClient = await getBundlerClient(publicClient);
   const callData = encodeFunctionData({ abi, functionName, args });
 
-  // viem builds the full UserOp, calls paymasterClient for sponsorship,
-  // runs the gas-padding hook, then submits — no manual gas overrides needed
+  // Pass verificationGasLimit directly — sets value in UserOp BEFORE pm_getPaymasterStubData,
+  // so the paymaster receives and signs our high limit instead of estimating it lower.
+  // 2M covers: wallet deployment (~500-800k) + paymaster verification (~50k) with margin.
   const userOpHash = await bundlerClient.sendUserOperation({
     calls: [{ to: contractAddr, data: callData, value: 0n }],
+    verificationGasLimit: 2_000_000n,
+    preVerificationGas: 500_000n,
   });
 
   const receipt = await bundlerClient.waitForUserOperationReceipt({ hash: userOpHash });
@@ -505,7 +508,7 @@ serve(async (_req) => {
     const feeKilled       = matrixResults.filter((r: any) => r.action === 'SKIPPED_FEES_EXCEED_SPREAD');
     const executed        = matrixResults.filter((r: any) => r.tx_hash);
     return new Response(safeJson({
-      version: "v80_paymaster_true_2M_verif",
+      version: "v81_direct_gas_override",
       network: "base",
       rpc: "alchemy_pending",
       dry_run: DRY_RUN,
