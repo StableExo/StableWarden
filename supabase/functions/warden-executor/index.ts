@@ -214,8 +214,12 @@ async function getBundlerClient(publicClient: any) {
   _smartAccount.userOperation = {
     estimateGas: async (userOperation: any) => {
       const estimate = await _bundlerClient.estimateUserOperationGas(userOperation);
-      estimate.preVerificationGas = (estimate.preVerificationGas * 130n) / 100n;
-      estimate.callGasLimit       = (estimate.callGasLimit       * 130n) / 100n;
+      estimate.preVerificationGas  = (estimate.preVerificationGas  * 130n) / 100n;
+      estimate.callGasLimit        = (estimate.callGasLimit        * 130n) / 100n;
+      // verificationGasLimit must cover smart account + paymaster verification
+      // Coinbase Smart Wallet needs ~200-500k; pad 3x and enforce 500k floor
+      const paddedVerif            = (estimate.verificationGasLimit * 3n);
+      estimate.verificationGasLimit = paddedVerif > 500_000n ? paddedVerif : 500_000n;
       return estimate;
     },
   };
@@ -501,7 +505,7 @@ serve(async (_req) => {
     const feeKilled       = matrixResults.filter((r: any) => r.action === 'SKIPPED_FEES_EXCEED_SPREAD');
     const executed        = matrixResults.filter((r: any) => r.tx_hash);
     return new Response(safeJson({
-      version: "v75_no_sim_gate",
+      version: "v77_verif_gas_fix",
       network: "base",
       rpc: "alchemy_pending",
       dry_run: DRY_RUN,
