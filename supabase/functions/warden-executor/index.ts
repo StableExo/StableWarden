@@ -224,7 +224,7 @@ async function executeViaPaymaster(
   functionName: string,
   args: readonly any[],
   nonceKey?: bigint  // ERC-4337 nonce lane key — unique per trade = independent parallel execution
-): Promise<{ txHash: string; userOpHash: string }> {
+): Promise<{ userOpHash: string }> {
   const bundlerClient = await getBundlerClient(publicClient);
   const callData = encodeFunctionData({ abi, functionName, args });
 
@@ -255,11 +255,18 @@ async function executeViaPaymaster(
     ...(nonce !== undefined && { nonce }),
   });
 
+  // Fire-and-forget: return immediately after submission.
+  // Receipt polling happens post-scan via Promise.allSettled — scan is never blocked.
+  return { userOpHash };
+}
+
+async function waitForReceipt(publicClient: any, userOpHash: string): Promise<string> {
+  const bundlerClient = await getBundlerClient(publicClient);
   const receipt = await bundlerClient.waitForUserOperationReceipt({
-    hash: userOpHash,
-    timeout: 60_000, // 60s max wait for receipt
+    hash: userOpHash as `0x${string}`,
+    timeout: 60_000,
   });
-  return { txHash: receipt.receipt.transactionHash, userOpHash };
+  return receipt.receipt.transactionHash;
 }
 
 function calcV3Price(sqrtPriceX96: bigint, token0Addr: string, tokenA: string, decA: number, decB: number): number {
@@ -387,6 +394,8 @@ async function batchScanAllTargets(
   const l1FeeEth = Number(formatUnits(l1FeeWei, 18));
   const parsedPrices = parsePriceResults(mcResults, specs);
   const results: any[] = [];
+  // Fire-and-forget: collect submitted ops here, poll receipts after scan completes
+  const pendingExecOps: Array<{ userOpHash: string; resultIdx: number; logData: any }> = [];
   for (let i = 0; i < TARGETS.length; i++) {
     const t = TARGETS[i];
     if (skipped.has(i)) { results.push({ target: t.name, status: 'POOL_NOT_FOUND' }); continue; }
@@ -467,9 +476,15 @@ async function batchScanAllTargets(
               await supabase.from('arbitrage_logs').insert({ network: 'base', source_a: t.venueAName, source_b: t.venueBName, token_pair: t.name, spread_pct: spreadRaw*100, gross_profit_usd: grossProfitUsd, gas_cost_usd: gasCostUsd, net_profit_usd: netProfit, direction: dirStr, status: 'DRY_RUN_SUCCESS', tx_hash: null });
             } else {
               action = 'EXECUTE';
-              const { txHash } = await executeViaPaymaster(publicClient, CONTRACT_ADDR, WARDEN_ABI, 'executeArbitrage', callArgs, BigInt(i));
-              executionHash = txHash;
-              await supabase.from('arbitrage_logs').insert({ network: 'base', source_a: t.venueAName, source_b: t.venueBName, token_pair: t.name, spread_pct: spreadRaw*100, gross_profit_usd: grossProfitUsd, gas_cost_usd: gasCostUsd, net_profit_usd: netProfit, direction: dirStr, status: 'EXECUTED', tx_hash: txHash });
+              // Fire immediately — don't await receipt, just get userOpHash and continue scanning
+              const { userOpHash } = await executeViaPaymaster(publicClient, CONTRACT_ADDR, WARDEN_ABI, 'executeArbitrage', callArgs, BigInt(i));
+              executionHash = `submitted:${userOpHash.slice(0,10)}`;
+              // Queue for post-scan receipt polling
+              pendingExecOps.push({
+                userOpHash,
+                resultIdx: results.length,
+                logData: { network: 'base', source_a: t.venueAName, source_b: t.venueBName, token_pair: t.name, spread_pct: spreadRaw*100, gross_profit_usd: grossProfitUsd, gas_cost_usd: gasCostUsd, net_profit_usd: netProfit, direction: dirStr },
+              });
             }
           } catch (execErr: any) {
             const errMsg = execErr?.shortMessage ?? execErr?.message ?? String(execErr);
@@ -485,6 +500,27 @@ async function batchScanAllTargets(
       }
       results.push({ target: t.name, venueA: t.venueAName, venueB: t.venueBName, venueA_price: `$${venueAPrice.toFixed(6)}`, venueB_price: `$${venueBPrice.toFixed(6)}`, spread_gross: `${(spreadRaw*100).toFixed(4)}%`, total_fees: `${(totalFeePct*100).toFixed(4)}%`, net_spread: `${(netSpread*100).toFixed(4)}%`, direction: dirStr, net_profit: `$${netProfit.toFixed(4)}`, isProfitable, executable: t.executable, dry_run: DRY_RUN, action, ...(rejectReason && { reject_reason: rejectReason }), ...(executionHash && { tx_hash: executionHash }), ...(executionError && { error: executionError }) });
     } catch (err: any) { results.push({ target: t.name, status: 'ERROR', error: String(err) }); }
+  }
+  // Post-scan: poll all submitted UserOp receipts in parallel (fire-and-forget pattern)
+  if (pendingExecOps.length > 0) {
+    const receiptResults = await Promise.allSettled(
+      pendingExecOps.map(op => waitForReceipt(publicClient, op.userOpHash))
+    );
+    for (let k = 0; k < pendingExecOps.length; k++) {
+      const op = pendingExecOps[k];
+      const settled = receiptResults[k];
+      if (settled.status === 'fulfilled') {
+        const txHash = settled.value;
+        results[op.resultIdx].tx_hash = txHash;
+        results[op.resultIdx].action = 'EXECUTE';
+        await supabase.from('arbitrage_logs').insert({ ...op.logData, status: 'EXECUTED', tx_hash: txHash });
+      } else {
+        const errMsg = settled.reason?.shortMessage ?? settled.reason?.message ?? String(settled.reason);
+        results[op.resultIdx].action = 'EXECUTE_FAILED';
+        results[op.resultIdx].error = errMsg;
+        await supabase.from('arbitrage_logs').insert({ ...op.logData, status: 'EXECUTE_FAILED', tx_hash: null, error_message: errMsg });
+      }
+    }
   }
   return results;
 }
@@ -509,14 +545,14 @@ serve(async (_req) => {
     const executed        = matrixResults.filter((r: any) => r.tx_hash);
     const failed          = matrixResults.filter((r: any) => r.action === 'EXECUTE_FAILED');
     return new Response(safeJson({
-      version: "v85_nonce_lanes",
+      version: "v85_fire_and_forget",
       network: "base",
       rpc: "alchemy_pending",
       dry_run: DRY_RUN,
       contract: CONTRACT_ADDR,
       smart_wallet: _smartWalletAddr ?? "not_initialized",
       execution_mode: "coinbase_paymaster_4337",
-      gas_strategy: "explicit_150k_verif+800k_call+300k_preverif__deployed_wallet_no_hook+nonce_lanes",
+      gas_strategy: "explicit_150k_verif+800k_call+300k_preverif__deployed_wallet_no_hook+nonce_lanes+fire_and_forget",
       paymaster_limit: "$15/UserOp (updated from $5)",
       eth_price_usd: ethPriceRef.value.toFixed(2),
       gas_price_gwei: Number(formatUnits(gasPrice, 9)).toFixed(6),
