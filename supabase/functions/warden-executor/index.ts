@@ -222,7 +222,8 @@ async function executeViaPaymaster(
   contractAddr: `0x${string}`,
   abi: any,
   functionName: string,
-  args: readonly any[]
+  args: readonly any[],
+  nonceKey?: bigint  // ERC-4337 nonce lane key — unique per trade = independent parallel execution
 ): Promise<{ txHash: string; userOpHash: string }> {
   const bundlerClient = await getBundlerClient(publicClient);
   const callData = encodeFunctionData({ abi, functionName, args });
@@ -242,11 +243,16 @@ async function executeViaPaymaster(
   //
   // Total estimated paymaster cost at 0.006 Gwei / $2500 ETH:
   //   (800k×2 + 800k + 300k) × 6e6 wei / 1e18 × $2500 ≈ $0.048 << $15
+  // Unique nonce lane per trade: nonce = key<<64|seq. Different keys = independent lanes.
+  // This prevents sequential blocking — ID8 timed out waiting for ID7 on the same lane (key=0).
+  const nonce = nonceKey !== undefined ? await _smartAccount.getNonce({ key: nonceKey }) : undefined;
+
   const userOpHash = await bundlerClient.sendUserOperation({
     calls: [{ to: contractAddr, data: callData, value: 0n }],
     verificationGasLimit: 150_000n,
     callGasLimit:         800_000n,
     preVerificationGas:   300_000n,
+    ...(nonce !== undefined && { nonce }),
   });
 
   const receipt = await bundlerClient.waitForUserOperationReceipt({
@@ -461,7 +467,7 @@ async function batchScanAllTargets(
               await supabase.from('arbitrage_logs').insert({ network: 'base', source_a: t.venueAName, source_b: t.venueBName, token_pair: t.name, spread_pct: spreadRaw*100, gross_profit_usd: grossProfitUsd, gas_cost_usd: gasCostUsd, net_profit_usd: netProfit, direction: dirStr, status: 'DRY_RUN_SUCCESS', tx_hash: null });
             } else {
               action = 'EXECUTE';
-              const { txHash } = await executeViaPaymaster(publicClient, CONTRACT_ADDR, WARDEN_ABI, 'executeArbitrage', callArgs);
+              const { txHash } = await executeViaPaymaster(publicClient, CONTRACT_ADDR, WARDEN_ABI, 'executeArbitrage', callArgs, BigInt(i));
               executionHash = txHash;
               await supabase.from('arbitrage_logs').insert({ network: 'base', source_a: t.venueAName, source_b: t.venueBName, token_pair: t.name, spread_pct: spreadRaw*100, gross_profit_usd: grossProfitUsd, gas_cost_usd: gasCostUsd, net_profit_usd: netProfit, direction: dirStr, status: 'EXECUTED', tx_hash: txHash });
             }
@@ -503,14 +509,14 @@ serve(async (_req) => {
     const executed        = matrixResults.filter((r: any) => r.tx_hash);
     const failed          = matrixResults.filter((r: any) => r.action === 'EXECUTE_FAILED');
     return new Response(safeJson({
-      version: "v85_verif_gas_150k",
+      version: "v85_nonce_lanes",
       network: "base",
       rpc: "alchemy_pending",
       dry_run: DRY_RUN,
       contract: CONTRACT_ADDR,
       smart_wallet: _smartWalletAddr ?? "not_initialized",
       execution_mode: "coinbase_paymaster_4337",
-      gas_strategy: "explicit_150k_verif+800k_call+300k_preverif__deployed_wallet_no_hook",
+      gas_strategy: "explicit_150k_verif+800k_call+300k_preverif__deployed_wallet_no_hook+nonce_lanes",
       paymaster_limit: "$15/UserOp (updated from $5)",
       eth_price_usd: ethPriceRef.value.toFixed(2),
       gas_price_gwei: Number(formatUnits(gasPrice, 9)).toFixed(6),
