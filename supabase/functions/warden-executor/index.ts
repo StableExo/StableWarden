@@ -229,7 +229,7 @@ async function executeViaPaymaster(
 
   // Gas values — all explicit, no hook, no ambiguity.
   //
-  // verificationGasLimit: 800k
+  // verificationGasLimit: 150k (wallet deployed - only sig validation needed)
   //   - CDP bundler ceiling confirmed < 2M (v81 rejected). 800k is our binary search midpoint.
   //   - Covers: wallet deployment (~300-500k) + signature validation (~50k) with buffer.
   //   - At current Base gas (~0.006 Gwei): 800k × 6e6 wei = $0.012. Far under $15 paymaster limit.
@@ -244,7 +244,7 @@ async function executeViaPaymaster(
   //   (800k×2 + 800k + 300k) × 6e6 wei / 1e18 × $2500 ≈ $0.048 << $15
   const userOpHash = await bundlerClient.sendUserOperation({
     calls: [{ to: contractAddr, data: callData, value: 0n }],
-    verificationGasLimit: 800_000n,
+    verificationGasLimit: 150_000n,
     callGasLimit:         800_000n,
     preVerificationGas:   300_000n,
   });
@@ -503,14 +503,14 @@ serve(async (_req) => {
     const executed        = matrixResults.filter((r: any) => r.tx_hash);
     const failed          = matrixResults.filter((r: any) => r.action === 'EXECUTE_FAILED');
     return new Response(safeJson({
-      version: "v84_gas_800k_clean",
+      version: "v85_verif_gas_150k",
       network: "base",
       rpc: "alchemy_pending",
       dry_run: DRY_RUN,
       contract: CONTRACT_ADDR,
       smart_wallet: _smartWalletAddr ?? "not_initialized",
       execution_mode: "coinbase_paymaster_4337",
-      gas_strategy: "explicit_800k_verif+800k_call+300k_preverif__no_hook_no_conflict",
+      gas_strategy: "explicit_150k_verif+800k_call+300k_preverif__deployed_wallet_no_hook",
       paymaster_limit: "$15/UserOp (updated from $5)",
       eth_price_usd: ethPriceRef.value.toFixed(2),
       gas_price_gwei: Number(formatUnits(gasPrice, 9)).toFixed(6),
