@@ -83,34 +83,15 @@ const VENUE_B_FEE_PCT: Record<VenueBType, number> = {
   'sushi_v3':   0,
 };
 
-const TARGETS: {
+// ── Trading pair targets loaded from warden_targets table at runtime ─────────
+// To add/remove pairs, edit the table in Supabase — no redeploy needed.
+interface WardenTarget {
   name: string; tokenA: string; tokenB: string;
   venueAName: string; venueAFactory: `0x${string}`; venueAParam: number;
   venueBName: string; venueBType: VenueBType;
   venueBFactory?: `0x${string}`; venueBParam?: number;
   executable: boolean;
-}[] = [
-  // Uni ↔ PancakeSwap V3
-  { name: "WETH-USDC [Uni↔PCS]",    tokenA: WETH,   tokenB: USDC,  venueAName: "UniswapV3_0.05%", venueAFactory: UNI_V3_FACTORY,      venueAParam: 500,  venueBName: "PancakeV3_0.05%", venueBType: 'pancake_v3', venueBFactory: PANCAKE_V3_FACTORY, venueBParam: 500,   executable: true },
-  { name: "cbETH-WETH [Uni↔PCS]",   tokenA: cbETH,  tokenB: WETH,  venueAName: "UniswapV3_0.01%", venueAFactory: UNI_V3_FACTORY,      venueAParam: 100,  venueBName: "PancakeV3_0.05%", venueBType: 'pancake_v3', venueBFactory: PANCAKE_V3_FACTORY, venueBParam: 500,   executable: true },
-  { name: "wstETH-WETH [Uni↔PCS]",  tokenA: wstETH, tokenB: WETH,  venueAName: "UniswapV3_0.01%", venueAFactory: UNI_V3_FACTORY,      venueAParam: 100,  venueBName: "PancakeV3_0.01%", venueBType: 'pancake_v3', venueBFactory: PANCAKE_V3_FACTORY, venueBParam: 100,   executable: true },
-  { name: "WETH-USDT [Uni↔PCS]",    tokenA: WETH,   tokenB: USDT,  venueAName: "UniswapV3_0.05%", venueAFactory: UNI_V3_FACTORY,      venueAParam: 500,  venueBName: "PancakeV3_0.05%", venueBType: 'pancake_v3', venueBFactory: PANCAKE_V3_FACTORY, venueBParam: 500,   executable: true },
-  { name: "USDbC-USDC [Uni↔PCS]",   tokenA: USDbC,  tokenB: USDC,  venueAName: "UniswapV3_0.01%", venueAFactory: UNI_V3_FACTORY,      venueAParam: 100,  venueBName: "PancakeV3_0.01%", venueBType: 'pancake_v3', venueBFactory: PANCAKE_V3_FACTORY, venueBParam: 100,   executable: true },
-  { name: "DAI-USDC [Uni↔PCS]",     tokenA: DAI,    tokenB: USDC,  venueAName: "UniswapV3_0.01%", venueAFactory: UNI_V3_FACTORY,      venueAParam: 100,  venueBName: "PancakeV3_0.01%", venueBType: 'pancake_v3', venueBFactory: PANCAKE_V3_FACTORY, venueBParam: 100,   executable: true },
-  { name: "WETH-cbBTC [Uni↔PCS]",   tokenA: WETH,   tokenB: cbBTC, venueAName: "UniswapV3_0.3%",  venueAFactory: UNI_V3_FACTORY,      venueAParam: 3000, venueBName: "PancakeV3_0.25%", venueBType: 'pancake_v3', venueBFactory: PANCAKE_V3_FACTORY, venueBParam: 2500,  executable: true },
-  { name: "WETH-AERO [Uni↔PCS]",    tokenA: WETH,   tokenB: AERO,  venueAName: "UniswapV3_0.3%",  venueAFactory: UNI_V3_FACTORY,      venueAParam: 3000, venueBName: "PancakeV3_0.25%", venueBType: 'pancake_v3', venueBFactory: PANCAKE_V3_FACTORY, venueBParam: 2500,  executable: true },
-  // Uni ↔ SushiSwap V3
-  { name: "WETH-USDC [Uni↔Sushi]",  tokenA: WETH,   tokenB: USDC,  venueAName: "UniswapV3_0.05%", venueAFactory: UNI_V3_FACTORY,      venueAParam: 500,  venueBName: "SushiV3_0.05%",  venueBType: 'sushi_v3',   venueBFactory: SUSHI_V3_FACTORY,   venueBParam: 500,   executable: true },
-  { name: "cbETH-WETH [Uni↔Sushi]", tokenA: cbETH,  tokenB: WETH,  venueAName: "UniswapV3_0.01%", venueAFactory: UNI_V3_FACTORY,      venueAParam: 100,  venueBName: "SushiV3_0.05%",  venueBType: 'sushi_v3',   venueBFactory: SUSHI_V3_FACTORY,   venueBParam: 500,   executable: true },
-  { name: "WETH-cbBTC [Uni↔Sushi]", tokenA: WETH,   tokenB: cbBTC, venueAName: "UniswapV3_0.3%",  venueAFactory: UNI_V3_FACTORY,      venueAParam: 3000, venueBName: "SushiV3_0.3%",   venueBType: 'sushi_v3',   venueBFactory: SUSHI_V3_FACTORY,   venueBParam: 3000,  executable: true },
-  { name: "wstETH-WETH [Uni↔Sushi]",tokenA: wstETH, tokenB: WETH,  venueAName: "UniswapV3_0.01%", venueAFactory: UNI_V3_FACTORY,      venueAParam: 100,  venueBName: "SushiV3_0.05%",  venueBType: 'sushi_v3',   venueBFactory: SUSHI_V3_FACTORY,   venueBParam: 500,   executable: true },
-  { name: "WETH-USDT [Uni↔Sushi]",  tokenA: WETH,   tokenB: USDT,  venueAName: "UniswapV3_0.05%", venueAFactory: UNI_V3_FACTORY,      venueAParam: 500,  venueBName: "SushiV3_0.3%",   venueBType: 'sushi_v3',   venueBFactory: SUSHI_V3_FACTORY,   venueBParam: 3000,  executable: true },
-  { name: "DAI-USDC [Uni↔Sushi]",   tokenA: DAI,    tokenB: USDC,  venueAName: "UniswapV3_0.01%", venueAFactory: UNI_V3_FACTORY,      venueAParam: 100,  venueBName: "SushiV3_0.01%",  venueBType: 'sushi_v3',   venueBFactory: SUSHI_V3_FACTORY,   venueBParam: 100,   executable: true },
-  // PancakeSwap V3 ↔ SushiSwap V3
-  { name: "WETH-USDT [PCS↔Sushi]",  tokenA: WETH,   tokenB: USDT,  venueAName: "PancakeV3_0.05%", venueAFactory: PANCAKE_V3_FACTORY,  venueAParam: 500,  venueBName: "SushiV3_0.3%",   venueBType: 'sushi_v3',   venueBFactory: SUSHI_V3_FACTORY,   venueBParam: 3000,  executable: true },
-  // Uni ↔ SushiSwap V2
-  { name: "WETH-USDC [Uni↔SushiV2]",tokenA: WETH,   tokenB: USDC,  venueAName: "UniswapV3_0.05%", venueAFactory: UNI_V3_FACTORY,      venueAParam: 500,  venueBName: "SushiSwap_V2",   venueBType: 'sushi_v2',   venueBFactory: SUSHI_V2_FACTORY,               executable: true },
-];
+}
 
 const TRI_CYCLES: any[] = [];
 
@@ -129,6 +110,11 @@ const GAS_PRICE_ORACLE_ABI = parseAbi([
   'function getL1FeeUpperBound(uint256 unsignedTxSize) view returns (uint256)'
 ]);
 
+// v89: ERC20 balanceOf — used to check FSV3 WETH balance before sweep
+const ERC20_ABI = parseAbi([
+  'function balanceOf(address account) view returns (uint256)'
+]);
+
 const DEX_GAS_UNITS: Record<string, number> = {
   'sushi_v2':   100_000,
   'pancake_v3': 120_000,
@@ -143,6 +129,13 @@ const WARDEN_ABI = parseAbi([
   'function executeArbitrage(address borrowToken, uint256 borrowAmount, ((address pool, address tokenIn, address tokenOut, uint24 fee, uint256 minOut, uint8 dexType)[] steps, uint256 borrowAmount, uint256 minFinalAmount) path) external'
 ]);
 
+// Auto-sweep — withdraw accumulated profit from FSV3 contract to EOA
+// FSV3 contract: withdraw(address token) transfers full token balance to hardcoded EOA (0x9358D671...)
+// Only callable by EOA or smart wallet (FSV3:NA guard). Nonce lane 99n = dedicated sweep lane.
+const WARDEN_WITHDRAW_ABI = parseAbi([
+  'function withdraw(address token) external'
+]);
+
 function getVenueADexType(factory: string): number {
   if (factory.toLowerCase() === PANCAKE_V3_FACTORY.toLowerCase()) return 8;
   if (factory.toLowerCase() === SUSHI_V3_FACTORY.toLowerCase())   return 7;
@@ -150,7 +143,7 @@ function getVenueADexType(factory: string): number {
 }
 
 function buildTwoStepPath(
-  t: typeof TARGETS[0],
+  t: WardenTarget,
   direction: number,
   amountInWei: bigint,
   minFinalAmount: bigint,
@@ -201,11 +194,6 @@ async function getBundlerClient(publicClient: any) {
   _smartAccount = await toCoinbaseSmartAccount({ client: publicClient, owners: [eoaAccount], version: '1.1' });
   _smartWalletAddr = _smartAccount.address as `0x${string}`;
 
-  // NO estimateGas hook — all gas values set explicitly in sendUserOperation to avoid conflicts.
-  // Hook + explicit params caused ambiguity: v79-v80 (hook only) = "too low" (paymaster overrode),
-  // v81 (explicit 2M) = "too high" (found CDP ceiling), v82-v83 (explicit 800k) = testing.
-  // Conclusion: explicit params bypass paymaster override AND stay under CDP ceiling.
-
   _bundlerClient = createBundlerClient({
     account:   _smartAccount,
     client:    publicClient,
@@ -223,28 +211,11 @@ async function executeViaPaymaster(
   abi: any,
   functionName: string,
   args: readonly any[],
-  nonceKey?: bigint  // ERC-4337 nonce lane key — unique per trade = independent parallel execution
+  nonceKey?: bigint
 ): Promise<{ userOpHash: string }> {
   const bundlerClient = await getBundlerClient(publicClient);
   const callData = encodeFunctionData({ abi, functionName, args });
 
-  // Gas values — all explicit, no hook, no ambiguity.
-  //
-  // verificationGasLimit: 150k (wallet deployed - only sig validation needed)
-  //   - CDP bundler ceiling confirmed < 2M (v81 rejected). 800k is our binary search midpoint.
-  //   - Covers: wallet deployment (~300-500k) + signature validation (~50k) with buffer.
-  //   - At current Base gas (~0.006 Gwei): 800k × 6e6 wei = $0.012. Far under $15 paymaster limit.
-  //
-  // callGasLimit: 800k
-  //   - Flash loan + 2 V3/V2 swaps typical actual usage: ~400-600k. 800k = 1.5× buffer.
-  //
-  // preVerificationGas: 300k
-  //   - CDP recommends 2× bundler estimate. Bundler returns ~150k; 300k = safe 2× floor.
-  //
-  // Total estimated paymaster cost at 0.006 Gwei / $2500 ETH:
-  //   (800k×2 + 800k + 300k) × 6e6 wei / 1e18 × $2500 ≈ $0.048 << $15
-  // Unique nonce lane per trade: nonce = key<<64|seq. Different keys = independent lanes.
-  // This prevents sequential blocking — ID8 timed out waiting for ID7 on the same lane (key=0).
   const nonce = nonceKey !== undefined ? await _smartAccount.getNonce({ key: nonceKey }) : undefined;
 
   const userOpHash = await bundlerClient.sendUserOperation({
@@ -255,8 +226,6 @@ async function executeViaPaymaster(
     ...(nonce !== undefined && { nonce }),
   });
 
-  // Fire-and-forget: return immediately after submission.
-  // Receipt polling happens post-scan via Promise.allSettled — scan is never blocked.
   return { userOpHash };
 }
 
@@ -282,7 +251,7 @@ function calcAeroPrice(r0: bigint, r1: bigint, token0Addr: string, tokenA: strin
   return tokenAIsToken0 ? R1 * Math.pow(10, decA - decB) / R0 : R0 * Math.pow(10, decA - decB) / R1;
 }
 
-function getTokenBPriceUsd(target: typeof TARGETS[0], venueAPrice: number, ethPriceUsd: number): number {
+function getTokenBPriceUsd(target: WardenTarget, venueAPrice: number, ethPriceUsd: number): number {
   const tokenBAddr = target.tokenB.toLowerCase();
   if (stableTokens.includes(tokenBAddr)) return 1;
   if (tokenBAddr === WETH.toLowerCase()) return ethPriceUsd;
@@ -290,11 +259,11 @@ function getTokenBPriceUsd(target: typeof TARGETS[0], venueAPrice: number, ethPr
   return 1;
 }
 
-function venueAPoolKey(t: typeof TARGETS[0]): string {
+function venueAPoolKey(t: WardenTarget): string {
   return `${t.venueAFactory}|${t.tokenA}|${t.tokenB}|${t.venueAParam}`;
 }
 
-function venueBPoolKey(t: typeof TARGETS[0]): string {
+function venueBPoolKey(t: WardenTarget): string {
   if (t.venueBType === 'pancake_v3' || t.venueBType === 'sushi_v3') return `${t.venueBFactory}|${t.tokenA}|${t.tokenB}|${t.venueBParam}`;
   return `${t.venueBFactory}|${t.tokenA}|${t.tokenB}|getPair`;
 }
@@ -305,10 +274,10 @@ async function loadPoolCache(supabase: any): Promise<Map<string, string>> {
   return new Map(data.map((r: any) => [r.cache_key, r.cache_value]));
 }
 
-async function discoverAndCacheMissingPools(publicClient: any, supabase: any, poolCache: Map<string, string>): Promise<void> {
+async function discoverAndCacheMissingPools(publicClient: any, supabase: any, poolCache: Map<string, string>, targets: WardenTarget[]): Promise<void> {
   interface DiscoverSpec { key: string; address: `0x${string}`; abi: any; functionName: string; args: any[]; }
   const specs: DiscoverSpec[] = [];
-  for (const t of TARGETS) {
+  for (const t of targets) {
     const kaKey = venueAPoolKey(t);
     if (!poolCache.has(kaKey)) specs.push({ key: kaKey, address: t.venueAFactory, abi: UNI_FACTORY_ABI, functionName: 'getPool', args: [t.tokenA, t.tokenB, t.venueAParam] });
     const kbKey = venueBPoolKey(t);
@@ -337,10 +306,10 @@ async function discoverAndCacheMissingPools(publicClient: any, supabase: any, po
 
 interface PriceCallSpec { targetIdx: number; role: 'venueA_slot0' | 'venueA_token0' | 'venueB_slot0' | 'venueB_token0' | 'venueB_reserves' | 'venueB_token0v2'; }
 
-function buildPriceMulticall(poolCache: Map<string, string>): { contracts: any[]; specs: PriceCallSpec[]; skipped: Set<number>; } {
+function buildPriceMulticall(poolCache: Map<string, string>, targets: WardenTarget[]): { contracts: any[]; specs: PriceCallSpec[]; skipped: Set<number>; } {
   const contracts: any[] = []; const specs: PriceCallSpec[] = []; const skipped = new Set<number>();
-  for (let i = 0; i < TARGETS.length; i++) {
-    const t = TARGETS[i];
+  for (let i = 0; i < targets.length; i++) {
+    const t = targets[i];
     const venueAPoolAddr = poolCache.get(venueAPoolKey(t));
     const venueBPoolAddr = poolCache.get(venueBPoolKey(t));
     if (!venueAPoolAddr || venueAPoolAddr.toLowerCase() === NULL_ADDR) { skipped.add(i); continue; }
@@ -380,24 +349,49 @@ async function batchScanAllTargets(
   publicClient: any, execRpcClient: any, supabase: any,
   trade_size_usd: number, min_profit_threshold_usd: number,
   gasPrice: bigint, ethPriceRef: { value: number }
-): Promise<any[]> {
+): Promise<{ results: any[]; sweepResult: any }> {
+  // ── Load trading pairs from Supabase (live config, no redeploy needed) ───
+  const { data: targetsData, error: targetsErr } = await supabase
+    .from('warden_targets')
+    .select('*')
+    .eq('enabled', true)
+    .order('id');
+  if (targetsErr || !targetsData || targetsData.length === 0) {
+    console.error('Failed to load warden_targets:', targetsErr?.message ?? 'empty result');
+    return { results: [], sweepResult: null };
+  }
+  const targets: WardenTarget[] = targetsData.map((r: any) => ({
+    name:           r.name,
+    tokenA:         r.token_a as `0x${string}`,
+    tokenB:         r.token_b as `0x${string}`,
+    venueAName:     r.venue_a_name,
+    venueAFactory:  r.venue_a_factory as `0x${string}`,
+    venueAParam:    r.venue_a_param,
+    venueBName:     r.venue_b_name,
+    venueBType:     r.venue_b_type as VenueBType,
+    venueBFactory:  r.venue_b_factory ? (r.venue_b_factory as `0x${string}`) : undefined,
+    venueBParam:    r.venue_b_param ?? undefined,
+    executable:     r.executable,
+  }));
+  console.log(`Loaded ${targets.length} targets from warden_targets`);
+
   const poolCache = await loadPoolCache(supabase);
-  await discoverAndCacheMissingPools(publicClient, supabase, poolCache);
-  const { contracts, specs, skipped } = buildPriceMulticall(poolCache);
+  await discoverAndCacheMissingPools(publicClient, supabase, poolCache, targets);
+  const { contracts, specs, skipped } = buildPriceMulticall(poolCache, targets);
   const l1FeeCallIdx = contracts.length;
   contracts.push({ address: GAS_PRICE_ORACLE, abi: GAS_PRICE_ORACLE_ABI, functionName: 'getL1FeeUpperBound', args: [BigInt(ARB_CALLDATA_BYTES)] });
   let mcResults: any[];
   try { mcResults = await publicClient.multicall({ contracts, allowFailure: true, blockTag: 'pending' }); }
-  catch (batchErr: any) { const errMsg = batchErr?.message ?? String(batchErr); return TARGETS.map(t => ({ target: t.name, status: 'BATCH_RPC_ERROR', error: errMsg })); }
+  catch (batchErr: any) { const errMsg = batchErr?.message ?? String(batchErr); return { results: targets.map(t => ({ target: t.name, status: 'BATCH_RPC_ERROR', error: errMsg })), sweepResult: null }; }
   const l1FeeRes = mcResults[l1FeeCallIdx];
   const l1FeeWei = (l1FeeRes?.status === 'success') ? (l1FeeRes.result as bigint) : 0n;
   const l1FeeEth = Number(formatUnits(l1FeeWei, 18));
   const parsedPrices = parsePriceResults(mcResults, specs);
   const results: any[] = [];
-  // Fire-and-forget: collect submitted ops here, poll receipts after scan completes
   const pendingExecOps: Array<{ userOpHash: string; resultIdx: number; logData: any }> = [];
-  for (let i = 0; i < TARGETS.length; i++) {
-    const t = TARGETS[i];
+
+  for (let i = 0; i < targets.length; i++) {
+    const t = targets[i];
     if (skipped.has(i)) { results.push({ target: t.name, status: 'POOL_NOT_FOUND' }); continue; }
     const d = parsedPrices.get(i);
     if (!d || d.error) { results.push({ target: t.name, status: 'PRICE_READ_ERROR', error: d?.error ?? 'no_data' }); continue; }
@@ -476,10 +470,8 @@ async function batchScanAllTargets(
               await supabase.from('arbitrage_logs').insert({ network: 'base', source_a: t.venueAName, source_b: t.venueBName, token_pair: t.name, spread_pct: spreadRaw*100, gross_profit_usd: grossProfitUsd, gas_cost_usd: gasCostUsd, net_profit_usd: netProfit, direction: dirStr, status: 'DRY_RUN_SUCCESS', tx_hash: null });
             } else {
               action = 'EXECUTE';
-              // Fire immediately — don't await receipt, just get userOpHash and continue scanning
               const { userOpHash } = await executeViaPaymaster(publicClient, CONTRACT_ADDR, WARDEN_ABI, 'executeArbitrage', callArgs, BigInt(i));
               executionHash = `submitted:${userOpHash.slice(0,10)}`;
-              // Queue for post-scan receipt polling
               pendingExecOps.push({
                 userOpHash,
                 resultIdx: results.length,
@@ -490,7 +482,6 @@ async function batchScanAllTargets(
             const errMsg = execErr?.shortMessage ?? execErr?.message ?? String(execErr);
             executionError = errMsg; rejectReason = `exec_failed: ${errMsg}`;
             action = DRY_RUN ? 'DRY_RUN_FAILED' : 'EXECUTE_FAILED';
-            // Log with full error_message so we can diagnose bundler rejections
             await supabase.from('arbitrage_logs').insert({ network: 'base', source_a: t.venueAName, source_b: t.venueBName, token_pair: t.name, spread_pct: spreadRaw*100, gross_profit_usd: grossProfitUsd, gas_cost_usd: gasCostUsd, net_profit_usd: netProfit, direction: dirStr, status: 'EXECUTE_FAILED', tx_hash: null, error_message: errMsg });
           }
         } else {
@@ -501,7 +492,11 @@ async function batchScanAllTargets(
       results.push({ target: t.name, venueA: t.venueAName, venueB: t.venueBName, venueA_price: `$${venueAPrice.toFixed(6)}`, venueB_price: `$${venueBPrice.toFixed(6)}`, spread_gross: `${(spreadRaw*100).toFixed(4)}%`, total_fees: `${(totalFeePct*100).toFixed(4)}%`, net_spread: `${(netSpread*100).toFixed(4)}%`, direction: dirStr, net_profit: `$${netProfit.toFixed(4)}`, isProfitable, executable: t.executable, dry_run: DRY_RUN, action, ...(rejectReason && { reject_reason: rejectReason }), ...(executionHash && { tx_hash: executionHash }), ...(executionError && { error: executionError }) });
     } catch (err: any) { results.push({ target: t.name, status: 'ERROR', error: String(err) }); }
   }
-  // Post-scan: poll all submitted UserOp receipts in parallel (fire-and-forget pattern)
+
+  // ── Post-scan: poll all submitted UserOp receipts in parallel ──────────────
+  let sweepResult: any = null;
+  let anyTradeSucceeded = false;
+
   if (pendingExecOps.length > 0) {
     const receiptResults = await Promise.allSettled(
       pendingExecOps.map(op => waitForReceipt(publicClient, op.userOpHash))
@@ -513,6 +508,7 @@ async function batchScanAllTargets(
         const txHash = settled.value;
         results[op.resultIdx].tx_hash = txHash;
         results[op.resultIdx].action = 'EXECUTE';
+        anyTradeSucceeded = true;
         await supabase.from('arbitrage_logs').insert({ ...op.logData, status: 'EXECUTED', tx_hash: txHash });
       } else {
         const errMsg = settled.reason?.shortMessage ?? settled.reason?.message ?? String(settled.reason);
@@ -522,7 +518,71 @@ async function batchScanAllTargets(
       }
     }
   }
-  return results;
+
+  // ── v89 Auto-sweep: withdraw accumulated WETH profit from FSV3 → EOA ───────
+  // Pre-check: read FSV3 WETH balance on-chain BEFORE submitting the sweep UserOp.
+  // If balance is 0, skip the sweep entirely — no wasted UserOp, no revert.
+  // Only runs if: DRY_RUN=false, at least 1 trade confirmed, BOT_PRIVATE_KEY present.
+  // Uses dedicated nonce lane 99n to never collide with trade lanes 0-15.
+  if (!DRY_RUN && anyTradeSucceeded && BOT_PRIVATE_KEY) {
+    try {
+      // ── Step 1: Check FSV3 WETH balance ─────────────────────────────────────
+      const contractWethBalance = await publicClient.readContract({
+        address: WETH as `0x${string}`,
+        abi: ERC20_ABI,
+        functionName: 'balanceOf',
+        args: [CONTRACT_ADDR],
+      }) as bigint;
+
+      const wethBalanceFormatted = formatUnits(contractWethBalance, 18);
+
+      if (contractWethBalance === 0n) {
+        // Nothing to sweep — IFR guard likely reverted all trades before profit landed
+        sweepResult = {
+          status: 'SWEEP_SKIPPED',
+          token: 'WETH',
+          reason: 'contract_balance_zero',
+          contract_weth_balance: wethBalanceFormatted,
+        };
+      } else {
+        // ── Step 2: Balance > 0 — fire the sweep ──────────────────────────────
+        const { userOpHash: sweepHash } = await executeViaPaymaster(
+          publicClient,
+          CONTRACT_ADDR,
+          WARDEN_WITHDRAW_ABI,
+          'withdraw',
+          [WETH as `0x${string}`],
+          99n  // dedicated sweep nonce lane
+        );
+        const sweepTxHash = await waitForReceipt(publicClient, sweepHash);
+        sweepResult = {
+          status: 'SWEEP_EXECUTED',
+          token: 'WETH',
+          destination: '0x9358D67164258370B0C07C37d3BF15A4c97b8Ab3',
+          amount_weth: wethBalanceFormatted,
+          tx_hash: sweepTxHash,
+        };
+        await supabase.from('arbitrage_logs').insert({
+          network: 'base',
+          source_a: 'FSV3_CONTRACT',
+          source_b: 'EOA',
+          token_pair: 'WETH_SWEEP',
+          spread_pct: 0,
+          gross_profit_usd: 0,
+          gas_cost_usd: 0,
+          net_profit_usd: 0,
+          direction: 'CONTRACT->EOA',
+          status: 'SWEEP_EXECUTED',
+          tx_hash: sweepTxHash,
+        });
+      }
+    } catch (sweepErr: any) {
+      const errMsg = sweepErr?.shortMessage ?? sweepErr?.message ?? String(sweepErr);
+      sweepResult = { status: 'SWEEP_FAILED', token: 'WETH', error: errMsg };
+    }
+  }
+
+  return { results, sweepResult };
 }
 
 serve(async (_req) => {
@@ -538,21 +598,21 @@ serve(async (_req) => {
     const { trade_size_usd, min_profit_threshold_usd } = configRes.data;
     const ethPriceRef = { value: 2000 };
     const t1 = Date.now();
-    const matrixResults = await batchScanAllTargets(publicClient, execRpcClient, supabase, Number(trade_size_usd), Number(min_profit_threshold_usd), gasPrice, ethPriceRef);
+    const { results: matrixResults, sweepResult } = await batchScanAllTargets(publicClient, execRpcClient, supabase, Number(trade_size_usd), Number(min_profit_threshold_usd), gasPrice, ethPriceRef);
     const t2 = Date.now();
     const profitable2Pool = matrixResults.filter((r: any) => r.isProfitable);
     const feeKilled       = matrixResults.filter((r: any) => r.action === 'SKIPPED_FEES_EXCEED_SPREAD');
-    const executed        = matrixResults.filter((r: any) => r.tx_hash);
+    const executed        = matrixResults.filter((r: any) => r.tx_hash && !r.tx_hash.startsWith('submitted:'));
     const failed          = matrixResults.filter((r: any) => r.action === 'EXECUTE_FAILED');
     return new Response(safeJson({
-      version: "v85_fire_and_forget",
+      version: "v90_db_targets",
       network: "base",
       rpc: "alchemy_pending",
       dry_run: DRY_RUN,
       contract: CONTRACT_ADDR,
       smart_wallet: _smartWalletAddr ?? "not_initialized",
       execution_mode: "coinbase_paymaster_4337",
-      gas_strategy: "explicit_150k_verif+800k_call+300k_preverif__deployed_wallet_no_hook+nonce_lanes+fire_and_forget",
+      gas_strategy: "explicit_150k_verif+800k_call+300k_preverif__deployed_wallet_no_hook+nonce_lanes+fire_and_forget+auto_sweep+balance_check",
       paymaster_limit: "$15/UserOp (updated from $5)",
       eth_price_usd: ethPriceRef.value.toFixed(2),
       gas_price_gwei: Number(formatUnits(gasPrice, 9)).toFixed(6),
@@ -561,12 +621,14 @@ serve(async (_req) => {
       sim_gate: "REMOVED — FSV3:IFR contract guard protects. simulateContract(smartWallet) was always failing (AA≠EOA).",
       timing_ms: { init: t1 - t0, two_pool_scan: t2 - t1, total: t2 - t0 },
       summary: {
-        total_pairs: TARGETS.length,
+        total_pairs: matrixResults.length,
         fee_killed: feeKilled.length,
         profitable: profitable2Pool.length,
         executed: executed.length,
         failed: failed.length,
+        sweep: sweepResult?.status ?? 'NO_TRADES_EXECUTED',
       },
+      sweep_result: sweepResult,
       two_pool_matrix: matrixResults,
     }), { headers: { 'Content-Type': 'application/json' } });
   } catch (e: any) { return new Response(safeJson({ error: String(e) }), { status: 500, headers: { 'Content-Type': 'application/json' } }); }
