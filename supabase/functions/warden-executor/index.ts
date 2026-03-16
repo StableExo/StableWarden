@@ -54,20 +54,8 @@ const weETH   = "0x04C0599Ae5A44757c0af6F9eC3b93da8976c150a";
 const AERO    = "0x940181a94A35A4569E4529A3CDfB74e38FD98631";
 const DAI     = "0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb";
 
-const DECIMALS: Record<string, number> = {
-  [WETH.toLowerCase()]:    18,
-  [USDC.toLowerCase()]:    6,
-  [cbETH.toLowerCase()]:   18,
-  [USDbC.toLowerCase()]:   6,
-  [cbBTC.toLowerCase()]:   8,
-  [wstETH.toLowerCase()]:  18,
-  [USDT.toLowerCase()]:    6,
-  [weETH.toLowerCase()]:   18,
-  [AERO.toLowerCase()]:    18,
-  [DAI.toLowerCase()]:     18,
-};
-
-const stableTokens = [USDC, USDbC, USDT, DAI].map(t => t.toLowerCase());
+// ── Token metadata loaded from warden_tokens table at runtime ────────────────
+// decimals, is_stable, is_aave_supported are built dynamically inside batchScanAllTargets.
 
 type VenueBType = 'sushi_v2' | 'pancake_v3' | 'sushi_v3';
 
@@ -251,9 +239,9 @@ function calcAeroPrice(r0: bigint, r1: bigint, token0Addr: string, tokenA: strin
   return tokenAIsToken0 ? R1 * Math.pow(10, decA - decB) / R0 : R0 * Math.pow(10, decA - decB) / R1;
 }
 
-function getTokenBPriceUsd(target: WardenTarget, venueAPrice: number, ethPriceUsd: number): number {
+function getTokenBPriceUsd(target: WardenTarget, venueAPrice: number, ethPriceUsd: number, stableSet: Set<string>): number {
   const tokenBAddr = target.tokenB.toLowerCase();
-  if (stableTokens.includes(tokenBAddr)) return 1;
+  if (stableSet.has(tokenBAddr)) return 1;
   if (tokenBAddr === WETH.toLowerCase()) return ethPriceUsd;
   if (target.tokenA.toLowerCase() === WETH.toLowerCase() && venueAPrice > 0) return ethPriceUsd / venueAPrice;
   return 1;
@@ -375,6 +363,24 @@ async function batchScanAllTargets(
   }));
   console.log(`Loaded ${targets.length} targets from warden_targets`);
 
+  // ── Load token metadata from Supabase (decimals, stable flag, aave flag) ──
+  const { data: tokensData, error: tokensErr } = await supabase
+    .from('warden_tokens')
+    .select('address, decimals, is_stable, is_aave_supported');
+  if (tokensErr || !tokensData) {
+    console.error('Failed to load warden_tokens:', tokensErr?.message ?? 'empty result');
+    return { results: [], sweepResult: null };
+  }
+  const decimals: Record<string, number> = {};
+  const stableSet = new Set<string>();
+  const aaveSet   = new Set<string>();
+  for (const tok of tokensData) {
+    const addr = tok.address.toLowerCase();
+    decimals[addr] = tok.decimals;
+    if (tok.is_stable)         stableSet.add(addr);
+    if (tok.is_aave_supported) aaveSet.add(addr);
+  }
+
   const poolCache = await loadPoolCache(supabase);
   await discoverAndCacheMissingPools(publicClient, supabase, poolCache, targets);
   const { contracts, specs, skipped } = buildPriceMulticall(poolCache, targets);
@@ -396,8 +402,8 @@ async function batchScanAllTargets(
     const d = parsedPrices.get(i);
     if (!d || d.error) { results.push({ target: t.name, status: 'PRICE_READ_ERROR', error: d?.error ?? 'no_data' }); continue; }
     try {
-      const decA = DECIMALS[t.tokenA.toLowerCase()] ?? 18;
-      const decB = DECIMALS[t.tokenB.toLowerCase()] ?? 18;
+      const decA = decimals[t.tokenA.toLowerCase()] ?? 18;
+      const decB = decimals[t.tokenB.toLowerCase()] ?? 18;
       const venueAPoolAddr = poolCache.get(venueAPoolKey(t))!;
       const venueBPoolAddr = poolCache.get(venueBPoolKey(t))!;
       if (!d.venueASlot0 || !d.venueAToken0) { results.push({ target: t.name, status: 'GHOST_POOL', detail: 'venueA_slot0_missing' }); continue; }
@@ -424,7 +430,7 @@ async function batchScanAllTargets(
         results.push({ target: t.name, venueA_price: `$${venueAPrice.toFixed(6)}`, venueB_price: `$${venueBPrice.toFixed(6)}`, spread_gross: `${(spreadRaw*100).toFixed(4)}%`, total_fees: `${(totalFeePct*100).toFixed(4)}%`, net_spread: `${(netSpread*100).toFixed(4)}%`, action: 'SKIPPED_FEES_EXCEED_SPREAD', reject_reason: `fees(${(totalFeePct*100).toFixed(2)}%) > spread(${(spreadRaw*100).toFixed(2)}%)` });
         continue;
       }
-      const tokenBPriceUsd = getTokenBPriceUsd(t, venueAPrice, ethPriceRef.value);
+      const tokenBPriceUsd = getTokenBPriceUsd(t, venueAPrice, ethPriceRef.value, stableSet);
       const grossProfitUsd = trade_size_usd * netSpread;
       const pairGasUnits   = estimatePairGasUnits(t.venueBType);
       const l2GasWei       = gasPrice * pairGasUnits;
@@ -443,20 +449,11 @@ async function batchScanAllTargets(
           } else if (t.tokenB.toLowerCase() === wethAddr) {
             effectiveBorrowToken = t.tokenB; useTokenABorrow = false;
           } else {
-            const AAVE_SUPPORTED_STABLE = new Set([
-              "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
-              "0xd9aaec86b65d86f6a7b5b1b0c42ffa531710b6ca",
-              "0x50c5725949a6f0c72e6c4a641f24049a917db0cb",
-              "0x2ae3f1ec7f1f5012cfeab0185bfc7aa3cf0dec22",
-              "0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf",
-              "0xc1cba3fcea344f92d9239c08c0568f6f2f0ee452",
-              "0x04c0599ae5a44757c0af6f9ec3b93da8976c150a",
-            ]);
-            const tokenAOk = AAVE_SUPPORTED_STABLE.has(t.tokenA.toLowerCase());
+            const tokenAOk = aaveSet.has(t.tokenA.toLowerCase());
             useTokenABorrow = tokenAOk;
             effectiveBorrowToken = tokenAOk ? t.tokenA : t.tokenB;
           }
-          const decEffective = DECIMALS[effectiveBorrowToken.toLowerCase()] ?? 18;
+          const decEffective = decimals[effectiveBorrowToken.toLowerCase()] ?? 18;
           const effectivePriceUsd = effectiveBorrowToken.toLowerCase() === wethAddr ? ethPriceRef.value : tokenBPriceUsd;
           const effectiveTokenAmount = trade_size_usd / effectivePriceUsd;
           const amountInWei = parseUnits(effectiveTokenAmount.toFixed(decEffective > 6 ? 8 : 6), decEffective);
@@ -605,7 +602,7 @@ serve(async (_req) => {
     const executed        = matrixResults.filter((r: any) => r.tx_hash && !r.tx_hash.startsWith('submitted:'));
     const failed          = matrixResults.filter((r: any) => r.action === 'EXECUTE_FAILED');
     return new Response(safeJson({
-      version: "v90_db_targets",
+      version: "v91_token_config",
       network: "base",
       rpc: "alchemy_pending",
       dry_run: DRY_RUN,
